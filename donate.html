@@ -707,9 +707,9 @@ window.acceptDeliveryJob = async function(id) {
     const sessionObj = sessionRaw ? JSON.parse(sessionRaw) : {};
     const driverId = sessionObj.id || null;
 
-    const claimRes = await fetch(`/api/deliveries/${id}/claim`, {
+    const claimRes = await fetch(`/api/deliveries/${encodeURIComponent(id)}/claim`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: (window.nsAuthHeaders ? window.nsAuthHeaders() : { 'Content-Type': 'application/json' }),
       body: JSON.stringify({ driverName: sessionObj.username || 'Volunteer (You)', driver_id: driverId })
     });
     if (claimRes.status === 409) {

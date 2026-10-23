@@ -202,7 +202,7 @@ window.deleteVolunteerJob = async function(id) {
   } catch (e) {}
 
   try {
-    await fetch(`/api/jobs/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    await fetch(`/api/jobs/${encodeURIComponent(id)}`, { method: 'DELETE', headers: (window.nsAuthHeaders ? window.nsAuthHeaders() : { 'Content-Type': 'application/json' }) });
   } catch (err) {}
 
   if (typeof window.loadOpportunities === 'function') {
@@ -405,7 +405,7 @@ async function submitNewJob(e) {
   try {
     const res = await fetch('/api/jobs', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: (window.nsAuthHeaders ? window.nsAuthHeaders() : { 'Content-Type': 'application/json' }),
       body: JSON.stringify({ title, company, pay, location, requirements: reqs, contact, authorId })
     });
     posted = res.ok;

@@ -90,7 +90,23 @@ app.get(['/helper-dashboard.html', '/volunteer-dashboard.html'], (req, res) => {
 
 // The Expo Go wrapper (expo-app/) lives in this folder but isn't part of the website
 app.use('/expo-app', (req, res) => res.status(404).end());
-app.use(express.static(__dirname));
+
+// The site is served from the repo root, so keep server code, local data, backups, git
+// metadata, AI model files and tooling out of reach. Only the public web assets are served.
+const BLOCKED_STATIC = [
+  /(^|\/)\./,                                // .git, .env, .agents, any dot-segment
+  /^\/(data|northstar-ai|node_modules|docs|refs|scripts|launch-video|e2e|expo-app|northstar|dist|src)(\/|$)/i,
+  /^\/(server|tsconfig|package|package-lock|skills-lock)[^/]*$/i,
+  /\.(before|redesign-backup|pre-settings-merge)[^/]*$/i,
+  /\.(md|py|sh|map|jsx|ts|tsx|csv|safetensors|log|save)$/i
+];
+app.use((req, res, next) => {
+  let p = req.path;
+  try { p = decodeURIComponent(p); } catch (e) { return res.status(400).end(); }
+  if (BLOCKED_STATIC.some(re => re.test(p))) return res.status(404).end();
+  next();
+});
+app.use(express.static(__dirname, { dotfiles: 'deny' }));
 
 const apify = new ApifyClient({ token: process.env.APIFY_TOKEN });
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
@@ -247,8 +263,20 @@ app.get('/api/config', (req, res) => {
 });
 
 app.get('/api/gigs', (req, res) => res.json({ success: true, count: activeGigs.length, gigs: activeGigs }));
+// Each scrape spends paid Apify + Gemini quota and the button is public, so at most one manual
+// scrape starts every 10 minutes; other callers wait for it or get the current list.
+const SCRAPE_MIN_INTERVAL_MS = 10 * 60 * 1000;
+let scrapeInFlight = null;
+let lastManualScrapeAt = 0;
 app.get('/api/trigger-scrape', async (req, res) => {
-  await fetchAndVetGigs();
+  const now = Date.now();
+  if (!scrapeInFlight && now - lastManualScrapeAt >= SCRAPE_MIN_INTERVAL_MS) {
+    lastManualScrapeAt = now;
+    scrapeInFlight = fetchAndVetGigs()
+      .catch(err => console.warn('Manual scrape warning:', err?.message || err))
+      .finally(() => { scrapeInFlight = null; });
+  }
+  if (scrapeInFlight) await scrapeInFlight;
   res.json({ success: true, count: activeGigs.length, gigs: activeGigs });
 });
 
@@ -557,7 +585,7 @@ async function runResumeGeneration(confirmed) {
 
 app.post('/api/generate-resume', async (req, res) => {
   console.log('✅ /api/generate-resume called');
-  console.log('Resume request:', req.body);
+  // Resume answers are personal (name, phone, history); never write them to the logs
   const { status, body } = await runResumeGeneration(req.body);
   if (!res.headersSent) res.status(status).json(body);
 });
@@ -607,10 +635,12 @@ app.get('/api/resume-jobs/:id', (req, res) => {
 
 app.post('/api/jobs', async (req, res) => {
   try {
-    const { title, company, location, type, pay, requirements, description, contact, authorId } = req.body;
+    const { title, company, location, type, pay, requirements, description, contact } = req.body || {};
     if (!title || !contact) {
       return res.status(400).json({ error: 'Title and contact details are required.' });
     }
+    // The author is whoever the session token proves, never a name sent in the body
+    const authorId = tokenUserId(req) || 'anonymous_volunteer';
 
     // Only what the poster typed (same shape GET /api/jobs returns); no invented pay or company
     const newJob = {
@@ -623,7 +653,7 @@ app.post('/api/jobs', async (req, res) => {
       requirements: Array.isArray(requirements) ? requirements.filter(Boolean) : (requirements ? [requirements] : []),
       description: description || '',
       contact,
-      authorId: authorId || 'anonymous_volunteer',
+      authorId,
       postedAt: new Date().toISOString()
     };
 
@@ -662,24 +692,36 @@ app.post('/api/jobs', async (req, res) => {
   }
 });
 
-// API Endpoint: Delete a job opportunity (Helper/Volunteer Funnel)
+// API Endpoint: Delete a job opportunity (Helper/Volunteer Funnel). Only the signed-in author can.
 app.delete('/api/jobs/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    const userId = tokenUserId(req);
+    if (!userId) return res.status(401).json({ success: false, error: 'Please log in again.' });
+
+    let found = false;
     const index = inMemoryJobs.findIndex(j => j.id === id);
     if (index !== -1) {
+      if (inMemoryJobs[index].authorId !== userId) return res.status(403).json({ success: false, error: 'You can only delete jobs you posted.' });
       inMemoryJobs.splice(index, 1);
+      found = true;
     }
 
     if (supabase) {
       try {
-        await supabase.from('jobs').delete().eq('id', id);
-        console.log('⚡ Deleted job from Supabase:', id);
+        const { data, error } = await supabase.from('jobs').delete().eq('id', id).eq('author_id', userId).select('id');
+        if (error) throw error;
+        if (data && data.length) found = true;
+        else if (!found) {
+          const { data: other } = await supabase.from('jobs').select('id').eq('id', id).maybeSingle();
+          if (other) return res.status(403).json({ success: false, error: 'You can only delete jobs you posted.' });
+        }
       } catch (sbErr) {
         console.warn('Supabase DB delete notice:', sbErr.message);
       }
     }
 
+    if (!found) return res.status(404).json({ success: false, error: 'Job not found.' });
     res.json({ success: true, message: 'Job deleted successfully.' });
   } catch (err) {
     console.error('Error deleting job:', err);
@@ -784,6 +826,13 @@ function verifyToken(token) {
   } catch (e) {
     return null;
   }
+}
+
+// The account id proven by a valid session token in the Authorization header, or null
+function tokenUserId(req) {
+  const auth = req.headers.authorization || '';
+  const data = verifyToken(auth.startsWith('Bearer ') ? auth.slice(7) : '');
+  return data ? data.id : null;
 }
 
 function requireUser(req, res) {
@@ -911,13 +960,16 @@ app.put('/api/user-data/:id', async (req, res) => {
   }
 });
 
-// User Profiles API Endpoints for Cross-Account Synchronization
+// User Profiles API: only the signed-in owner can read or change their own profile,
+// and the password hash never leaves the server.
 app.get('/api/profiles/:id', async (req, res) => {
+  const userId = tokenUserId(req);
+  if (!userId || userId !== req.params.id) return res.status(401).json({ success: false, error: 'Please log in again.' });
   if (supabase) {
     try {
-      const { data, error } = await supabase.from('profiles').select('*').eq('id', req.params.id).single();
+      const { data, error } = await supabase.from('profiles').select('id, username, role, theme').eq('id', userId).single();
       if (!error && data) {
-        return res.json({ success: true, profile: data });
+        return res.json({ success: true, profile: { ...publicProfile(data), theme: data.theme || null } });
       }
     } catch (err) {
       console.warn('Supabase fetch profile notice:', err.message);
@@ -927,26 +979,24 @@ app.get('/api/profiles/:id', async (req, res) => {
 });
 
 app.post('/api/profiles', async (req, res) => {
-  const { id, username, full_name, role, theme } = req.body || {};
-  if (!id) return res.status(400).json({ error: 'User id is required' });
+  const { id, role, theme } = req.body || {};
+  if (!id) return res.status(400).json({ success: false, error: 'User id is required' });
+  const userId = tokenUserId(req);
+  if (!userId || userId !== id) return res.status(401).json({ success: false, error: 'Please log in again.' });
+  if (!supabase) return res.status(503).json({ success: false, error: 'Accounts are unavailable right now.' });
 
-  if (supabase) {
-    try {
-      const payload = { id, updated_at: new Date().toISOString() };
-      if (username) payload.username = username;
-      if (role) payload.role = role;
-      if (theme) payload.theme = theme;
-      
-      const { data, error } = await supabase.from('profiles').upsert(payload, { onConflict: 'id' }).select('*').single();
-      if (!error) {
-        return res.json({ success: true, profile: data });
-      }
-      console.warn('Supabase profile upsert warning:', error.message);
-    } catch (err) {
-      console.warn('Supabase profile error:', err.message);
-    }
+  // Usernames are set at signup (where uniqueness is checked); here only preferences change
+  const payload = { updated_at: new Date().toISOString() };
+  if (role === 'seeker' || role === 'volunteer') payload.role = role;
+  if (typeof theme === 'string' && theme.length <= 20) payload.theme = theme;
+  try {
+    const { data, error } = await supabase.from('profiles').update(payload).eq('id', userId).select('id, username, role, theme').single();
+    if (error) throw error;
+    return res.json({ success: true, profile: { ...publicProfile(data), theme: data.theme || null } });
+  } catch (err) {
+    console.warn('Supabase profile update notice:', err.message);
+    return res.status(500).json({ success: false, error: 'Couldn’t save right now.' });
   }
-  res.json({ success: true, profile: { id, username, role, theme } });
 });
 
 // API Endpoint: Create Stripe Checkout Session for Donations
@@ -1113,9 +1163,11 @@ app.post('/api/deliveries', async (req, res) => {
 app.post('/api/deliveries/:id/claim', async (req, res) => {
   try {
     const { id } = req.params;
-    const { driverName, driver_id } = req.body;
+    const { driverName } = req.body || {};
+    // The volunteer claiming is whoever the session token proves
+    const driver_id = tokenUserId(req);
     if (!driver_id) {
-      return res.status(400).json({ success: false, error: 'Sign in to claim a pickup.' });
+      return res.status(401).json({ success: false, error: 'Sign in to claim a pickup.' });
     }
     
     const takenByOther = (d) => d && d.status !== 'pending_driver' && !(driver_id && d.driver_id === driver_id);
@@ -1175,32 +1227,38 @@ app.post('/api/deliveries/:id/claim', async (req, res) => {
 app.post('/api/deliveries/:id/status', async (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    const { status } = req.body || {};
     const VALID_DELIVERY_STATUSES = ['pending_driver', 'driver_assigned', 'in_transit', 'delivered', 'completed'];
-    if (status && !VALID_DELIVERY_STATUSES.includes(status)) {
+    if (!status || !VALID_DELIVERY_STATUSES.includes(status)) {
       return res.status(400).json({ success: false, error: `Invalid status. Use one of: ${VALID_DELIVERY_STATUSES.join(', ')}` });
     }
-    
-    if (supabase && status) {
-      const { error } = await supabase.from('deliveries').update({ status, updated_at: new Date().toISOString() }).eq('id', id);
-      if (!error) {
-        console.log(`📦 Delivery ${id} status updated to: ${status} in Supabase`);
-        const idx = activeDeliveries.findIndex(d => d.id === id);
-        if (idx !== -1) {
-          activeDeliveries[idx].status = status;
+    // Only the volunteer who claimed this pickup can move it along
+    const userId = tokenUserId(req);
+    if (!userId) return res.status(401).json({ success: false, error: 'Please log in again.' });
+
+    if (supabase) {
+      const { data: existing, error: getErr } = await supabase.from('deliveries').select('id, driver_id').eq('id', id).maybeSingle();
+      if (!getErr && existing) {
+        if (existing.driver_id !== userId) return res.status(403).json({ success: false, error: 'Only the volunteer who claimed this pickup can update it.' });
+        const { error } = await supabase.from('deliveries').update({ status, updated_at: new Date().toISOString() }).eq('id', id).eq('driver_id', userId);
+        if (!error) {
+          console.log(`📦 Delivery ${id} status updated to: ${status} in Supabase`);
+          const idx = activeDeliveries.findIndex(d => d.id === id);
+          if (idx !== -1) {
+            activeDeliveries[idx].status = status;
+          }
+          return res.json({ success: true, delivery: { id, status } });
         }
-        return res.json({ success: true, delivery: { id, status } });
       }
     }
 
     const delivery = activeDeliveries.find(d => d.id === id);
     if (!delivery) {
-      return res.status(404).json({ error: 'Delivery request not found.' });
+      return res.status(404).json({ success: false, error: 'Delivery request not found.' });
     }
-    if (status) {
-      delivery.status = status;
-      delivery.updatedAt = new Date().toISOString();
-    }
+    if (delivery.driver_id !== userId) return res.status(403).json({ success: false, error: 'Only the volunteer who claimed this pickup can update it.' });
+    delivery.status = status;
+    delivery.updatedAt = new Date().toISOString();
     console.log(`📦 Delivery ${id} status updated to: ${delivery.status} in memory`);
     res.json({ success: true, delivery });
   } catch (err) {

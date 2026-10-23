@@ -1035,7 +1035,7 @@
       iconAnchor: [11, 11]
     });
 
-    userLocationMarker = L.marker([latitude, longitude], { icon: blueDotIcon, zIndexOffset: 1000 }).addTo(map);
+    userLocationMarker = L.marker([latitude, longitude], { icon: blueDotIcon, zIndexOffset: 1000, title: 'You are here', alt: 'You are here' }).addTo(map);
     userLocationMarker.bindTooltip('You are here', { direction: 'top', offset: [0, -10] });
 
     // Auto-fit around the radius circle, unless a search or a focused place is showing: then keep it in view

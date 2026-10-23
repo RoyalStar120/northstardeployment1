@@ -62,6 +62,18 @@ function nsEscape(value) {
 }
 window.nsEscape = nsEscape;
 
+// JSON headers plus the signed-in account's session token. The server works out who is
+// posting, claiming or deleting from this token, never from ids in the request body.
+function nsAuthHeaders(extra) {
+  const headers = Object.assign({ 'Content-Type': 'application/json' }, extra || {});
+  try {
+    const s = JSON.parse(localStorage.getItem('northstar_session') || 'null');
+    if (s && !s.isGuest && s.token) headers.Authorization = `Bearer ${s.token}`;
+  } catch (e) {}
+  return headers;
+}
+window.nsAuthHeaders = nsAuthHeaders;
+
 function nsDisplayName() {
   const session = getSession();
   if (!session || session.isGuest) return '';
@@ -325,21 +337,8 @@ function setRole(role) {
   if (role !== 'seeker' && role !== 'volunteer') role = 'seeker';
   cachedSupabaseRole = role;
   localStorage.setItem('northstar_user_role', role);
-
-  if (window.supabaseClient) {
-    try {
-      const raw = localStorage.getItem('northstar_session');
-      const session = raw ? JSON.parse(raw) : null;
-      // profiles.username is NOT NULL, so an upsert without it is rejected for new rows
-      if (session?.id && session.username && !session.isGuest && !session.id.startsWith('user-')) {
-        window.supabaseClient
-          .from('profiles')
-          .upsert({ id: session.id, username: session.username, role: role }, { onConflict: 'id' })
-          .then(() => { })
-          .catch(() => { });
-      }
-    } catch (_) { }
-  }
+  // The saved role on the account is updated by switchUserRole() through /api/profiles,
+  // which checks the session token. The browser never writes the profiles table directly.
 
   window.userRole = role;
   renderBottomNav();
@@ -484,7 +483,7 @@ async function switchUserRole(role, event) {
           method: 'POST',
           keepalive: true,
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sess.token}` },
-          body: JSON.stringify({ id: sess.id, username: sess.username, role })
+          body: JSON.stringify({ id: sess.id, role })
         }).catch(() => {});
       }
     }
@@ -1560,7 +1559,7 @@ window.claimAndTrackDelivery = async function(id) {
 
     const claimRes = await fetch(`/api/deliveries/${encodeURIComponent(id)}/claim`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: nsAuthHeaders(),
       body: JSON.stringify({ driverName: driverName, driver_id: driverId })
     });
     if (claimRes.status === 409) {
@@ -1604,7 +1603,7 @@ window.updateDeliveryStatusDirect = async function(id, status) {
   try {
     await fetch(`/api/deliveries/${encodeURIComponent(id)}/status`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: nsAuthHeaders(),
       body: JSON.stringify({ status: status })
     });
     const res = await fetch(`/api/deliveries/${encodeURIComponent(id)}`);
