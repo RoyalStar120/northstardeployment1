@@ -1022,19 +1022,19 @@ async function generateResume() {
 
   const confirmed = {
     name, phone, location,
-    alternate_contact: contactInfo,
+    alternate_contact: '',
     experience_categories: experienceTypes,
     tasks: informalNotes ? [informalNotes] : [],
     employers: [],
-    possible_employers: contactInfo ? [contactInfo] : [],
+    possible_employers: [],
     job_titles: [], unconfirmed_job_titles: [],
     dates: [], durations: [],
     confirmed_numbers: confirmedNumbers,
     contact_numbers: contactNumbers,
     certifications, 
     education: eduArr,
-    languages: [],
-    skills: practicalSkills,
+    languages: skillsCertifications.includes('Bilingual / Multilingual') ? ['Bilingual'] : [],
+    skills: practicalSkills.filter(skill => skill !== 'Bilingual / Multilingual'),
     target_jobs: targetRoles
   };
 

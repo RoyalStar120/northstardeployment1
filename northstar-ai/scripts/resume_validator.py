@@ -16,7 +16,7 @@ def normalize(text: str) -> str:
 
 
 def extract_numbers(text: str) -> List[str]:
-    return re.findall(r"\b\d+(?:\.\d+)?\+?%?\b", text)
+    return re.findall(r"\b\d+(?:\.\d+)?(?:\+|%)?(?!\w)", text)
 
 
 def extract_years(text: str) -> List[str]:
@@ -290,13 +290,25 @@ def validate_resume(
     ]
 
     confirmed_languages = confirmed.get("languages", [])
+    confirmed_skills_for_languages = {
+        normalize(x) for x in confirmed.get("skills", [])
+    }
 
     for language in known_languages:
         if contains_phrase(resume, language):
-            if not any(
+            explicitly_confirmed = any(
                 normalize(language) == normalize(x)
                 for x in confirmed_languages
-            ):
+            )
+
+            # The resume builder stores its explicit "Bilingual" chip in skills.
+            if normalize(language) == "bilingual":
+                explicitly_confirmed = (
+                    explicitly_confirmed
+                    or normalize(language) in confirmed_skills_for_languages
+                )
+
+            if not explicitly_confirmed:
                 issues.append(
                     ValidationIssue(
                         type="unsupported_language",

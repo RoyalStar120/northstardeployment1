@@ -1,0 +1,1308 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=0.9, viewport-fit=cover">
+<meta name="theme-color" content="#FFFFFF">
+<title>Resume · Northstar</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.png" type="image/png" sizes="512x512">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<script src="js/ns-boot.js"></script>
+<script src="js/user-data.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com?plugins=container-queries"></script>
+<script src="js/tailwind-config.js"></script>
+<link rel="stylesheet" href="css/app.css">
+<style>
+/* ---- Resume builder: page-only styles ---- */
+.rb-segment-bar { flex-shrink: 0; padding: 0 20px 12px; background: var(--cream); position: relative; z-index: 19; }
+
+/* Wizard step header */
+.rb-step-title { font-size: clamp(21px, 6vw, 24px); line-height: 1.2; font-weight: 700; letter-spacing: -0.025em; outline: none; }
+.rb-step-sub { margin-top: 8px; font-size: 15px; line-height: 1.5; font-weight: 500; color: var(--ink-2); }
+.rb-field + .rb-field { margin-top: 20px; }
+.rb-optional { font-weight: 500; color: var(--muted); }
+.rb-field-error { margin-top: 8px; font-size: 13px; font-weight: 600; color: var(--danger); }
+.ns-input.is-invalid { border-color: var(--danger); }
+
+/* Chips: show a check mark on selected chips so the state isn't color-only */
+.rb-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.rb-chips .ns-chip { white-space: normal; text-align: left; height: auto; min-height: 44px; padding-top: 8px; padding-bottom: 8px; line-height: 1.25; }
+.rb-chips .ns-chip .rb-check { display: none; font-size: 18px; margin-left: -4px; }
+.rb-chips .ns-chip[aria-pressed='true'] .rb-check { display: inline-block; }
+
+/* Sticky action bar (thumb zone) — sits between the scroll area and the bottom nav */
+.rb-actions {
+  flex-shrink: 0; position: relative; z-index: 30;
+  display: flex; gap: 12px; padding: 12px 20px;
+  background: var(--cream); border-top: 1px solid var(--line);
+}
+.rb-actions .ns-btn--ghost { flex: 0 0 34%; }
+.rb-actions .ns-btn--primary { flex: 1 1 auto; }
+.app-frame.rb-has-actions .ns-fab { display: none; } /* the pinned Back/Next bar needs the room on a phone */
+
+/* Loading */
+.rb-spinner { width: 44px; height: 44px; border-radius: 50%; border: 4px solid var(--sand-deep); border-top-color: var(--ink); animation: rbSpin 0.9s linear infinite; }
+@keyframes rbSpin { to { transform: rotate(360deg); } }
+
+/* ---- The resume itself: a plain, professional document ---- */
+.rb-paper {
+  background: #fff; color: #111; font-size: 13px; line-height: 1.5;
+  border: 1px solid #E6E6E6; border-radius: 6px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 14px 30px -20px rgba(0,0,0,0.28);
+  padding: 28px 22px;
+}
+.rb-paper h1 { font-size: 22px; line-height: 1.2; font-weight: 700; letter-spacing: -0.01em; color: #111; }
+.rb-paper .rb-contact { margin-top: 4px; font-size: 12.5px; color: #333; display: flex; flex-wrap: wrap; column-gap: 0; }
+.rb-paper .rb-contact > span:not(:empty) ~ span:not(:empty)::before { content: '|'; margin: 0 8px; color: #999; }
+.rb-paper .rb-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 12px; border-bottom: 1.5px solid #111; }
+.rb-paper .rb-photo { width: 64px; height: 64px; border-radius: 6px; object-fit: cover; }
+.rb-paper .rb-sec { margin-top: 18px; }
+.rb-paper .rb-sec > h2 { font-size: 13px; font-weight: 700; letter-spacing: 0.01em; color: #111; padding-bottom: 4px; margin-bottom: 8px; border-bottom: 1px solid #CFCFCF; }
+.rb-paper .rb-sub { font-weight: 700; color: #111; }
+.rb-paper ul { list-style: disc; padding-left: 18px; }
+.rb-paper li + li { margin-top: 2px; }
+.rb-paper .exp-block + .exp-block { margin-top: 12px; }
+.rb-paper .exp-line { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-weight: 700; }
+.rb-paper .exp-duration { font-weight: 500; color: #444; white-space: nowrap; }
+.rb-paper .exp-org { color: #444; font-style: italic; }
+.rb-paper .exp-bullets { margin-top: 4px; }
+.rb-paper .exp-org:empty, .rb-paper .exp-duration:empty { display: none; }
+.rb-paper [contenteditable] { outline: none; border-radius: 3px; }
+.rb-paper [contenteditable]:focus { background: #F4F4F5; box-shadow: 0 0 0 2px #D4D4D8; }
+.rb-skills-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+
+/* Plain text view */
+.rb-plaintext { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; line-height: 1.55; min-height: 360px; padding: 16px; }
+
+/* ---- Print: only the resume ---- */
+@media print {
+  @page { margin: 0.6in; }
+  .no-print, .ns-header, .rb-segment-bar, .rb-actions, .ns-nav, .ns-fab, .ns-chat, .ns-chat-backdrop, .ns-sheet-wrap,
+  #view-wizard-container, #view-text-container, #loading-spinner, #matched-jobs-container, #preview-empty, #guest-lock-overlay {
+    display: none !important;
+  }
+  .ns-main { overflow: visible !important; padding: 0 !important; height: auto !important; filter: none !important; }
+  #view-preview-container { display: block !important; }
+  #printable-resume { border: 0 !important; box-shadow: none !important; border-radius: 0 !important; padding: 0 !important; margin: 0 !important; width: 100% !important; font-size: 11pt; }
+  #printable-resume [contenteditable] { background: none !important; box-shadow: none !important; }
+}
+</style>
+</head>
+<body>
+
+<div class="app-frame">
+
+    <header class="ns-header no-print">
+        <div class="min-w-0">
+            <h1 class="ns-header__title">Resume</h1>
+        </div>
+        <div class="ns-header__actions">
+            <button id="profile-btn" type="button" class="ns-icon-btn ns-avatar-btn" aria-label="Open settings" onclick="openSettingsModal()">S</button>
+        </div>
+    </header>
+
+    <!-- View switcher -->
+    <div class="rb-segment-bar no-print">
+        <div class="ns-segment view-mode-tabs" role="group" aria-label="Choose a view">
+            <button id="tab-wizard" type="button" onclick="switchView('wizard')" class="is-active" aria-pressed="true">Questions</button>
+            <button id="tab-preview" type="button" onclick="switchView('preview')" aria-pressed="false">Resume</button>
+            <button id="tab-text" type="button" onclick="switchView('text')" aria-pressed="false">Plain text</button>
+        </div>
+    </div>
+
+    <main class="ns-main">
+
+        <!-- VIEW 1: GUIDED QUESTIONS -->
+        <div id="view-wizard-container" class="no-print">
+
+            <!-- Progress -->
+            <div class="pt-2" aria-live="polite">
+                <div class="flex items-baseline justify-between gap-3">
+                    <span id="wizard-step-label" class="text-[13px] font-bold text-ink">Step 1 of 5</span>
+                    <span id="wizard-progress-percent" class="text-[13px] font-semibold text-muted">Contact</span>
+                </div>
+                <div class="ns-progress mt-2" role="progressbar" aria-label="Progress" aria-valuemin="1" aria-valuemax="5" aria-valuenow="1" id="wizard-progressbar">
+                    <div id="wizard-progress-bar" style="width: 20%"></div>
+                </div>
+            </div>
+
+            <!-- Error from the last attempt -->
+            <div id="resume-error" class="hidden mt-5 rounded-card border border-danger-line bg-danger-wash p-4 text-[14px] font-semibold text-danger" role="alert"></div>
+
+            <!-- STEP 1: CONTACT -->
+            <section id="step-1" class="rb-step pt-6" aria-labelledby="step-1-title">
+                <h2 id="step-1-title" class="rb-step-title" tabindex="-1">How can employers reach you?</h2>
+                <p class="rb-step-sub">Only your name is required.</p>
+
+                <div class="mt-6">
+                    <div class="rb-field">
+                        <label for="input-name" class="ns-label">Your name</label>
+                        <input type="text" id="input-name" class="ns-input" placeholder="First and last name" autocomplete="name" required>
+                        <p id="input-name-error" class="rb-field-error hidden">Please enter your name.</p>
+                    </div>
+                    <div class="rb-field">
+                        <label for="input-phone" class="ns-label">Phone number <span class="rb-optional">(or a message phone)</span></label>
+                        <input type="tel" id="input-phone" class="ns-input" placeholder="(555) 234-5678" autocomplete="tel">
+                    </div>
+                    <div class="rb-field">
+                        <label for="input-contact" class="ns-label">Email or case worker contact</label>
+                        <input type="text" id="input-contact" class="ns-input" placeholder="Email, shelter or case worker" autocomplete="email">
+                        <p class="ns-hint">Helps write your resume. It isn’t printed on it.</p>
+                    </div>
+                    <div class="rb-field">
+                        <label for="input-location" class="ns-label">City and state</label>
+                        <input type="text" id="input-location" class="ns-input" placeholder="Seattle, WA" autocomplete="address-level2">
+                    </div>
+                    <div class="rb-field">
+                        <span class="ns-label">Photo <span class="rb-optional">(optional)</span></span>
+                        <div class="flex items-center gap-4">
+                            <div id="photo-preview-container" class="ns-tile ns-tile--plain overflow-hidden" style="width:64px;height:64px">
+                                <span id="photo-placeholder-icon" class="material-symbols-outlined">add_a_photo</span>
+                                <img id="photo-preview-img" src="" alt="Your photo" class="w-full h-full object-cover hidden">
+                            </div>
+                            <input type="file" id="input-photo" accept="image/*" onchange="handleResumePhotoUpload(event)" class="hidden">
+                            <div class="flex flex-wrap gap-2">
+                                <button type="button" onclick="document.getElementById('input-photo').click()" class="ns-btn ns-btn--ghost ns-btn--sm">Choose photo</button>
+                                <button type="button" id="remove-photo-btn" onclick="removeResumePhoto()" class="hidden ns-btn ns-btn--ghost ns-btn--sm">Remove</button>
+                            </div>
+                        </div>
+                        <p class="ns-hint">Most job applications in the US don’t need a photo.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- STEP 2: WORK & INFORMAL EXPERIENCE -->
+            <section id="step-2" class="rb-step pt-6 hidden" aria-labelledby="step-2-title">
+                <h2 id="step-2-title" class="rb-step-title" tabindex="-1">What work have you done?</h2>
+                <p class="rb-step-sub">Tap all that fit. Paid jobs, day labor, volunteering and helping family all count.</p>
+
+                <div class="rb-chips mt-6" id="experience-chips-container">
+                    <button type="button" class="chip-btn ns-chip" aria-pressed="false" data-val="Day Labor"><span class="material-symbols-outlined rb-check">check</span>Day labor</button>
+                    <button type="button" class="chip-btn ns-chip" aria-pressed="false" data-val="Kitchen & Food Prep"><span class="material-symbols-outlined rb-check">check</span>Kitchen and food prep</button>
+                    <button type="button" class="chip-btn ns-chip" aria-pressed="false" data-val="Shelter & Pantry Volunteering"><span class="material-symbols-outlined rb-check">check</span>Shelter or pantry volunteering</button>
+                    <button type="button" class="chip-btn ns-chip" aria-pressed="false" data-val="Warehouse & Freight"><span class="material-symbols-outlined rb-check">check</span>Warehouse and freight</button>
+                    <button type="button" class="chip-btn ns-chip" aria-pressed="false" data-val="Caregiving & Family Support"><span class="material-symbols-outlined rb-check">check</span>Caregiving</button>
+                    <button type="button" class="chip-btn ns-chip" aria-pressed="false" data-val="Janitorial & Cleaning"><span class="material-symbols-outlined rb-check">check</span>Cleaning and janitorial</button>
+                    <button type="button" class="chip-btn ns-chip" aria-pressed="false" data-val="Landscaping & Grounds Keeping"><span class="material-symbols-outlined rb-check">check</span>Landscaping and yard work</button>
+                    <button type="button" class="chip-btn ns-chip" aria-pressed="false" data-val="Retail & Customer Service"><span class="material-symbols-outlined rb-check">check</span>Customer service</button>
+                </div>
+
+                <div class="rb-field mt-6">
+                    <label for="input-informal-notes" class="ns-label">What did you do there? <span class="rb-optional">(optional)</span></label>
+                    <textarea id="input-informal-notes" rows="3" class="ns-textarea" placeholder="For example: prepped meals, unloaded trucks, kept the pantry organized"></textarea>
+                </div>
+            </section>
+
+            <!-- STEP 3: SKILLS & CERTIFICATIONS -->
+            <section id="step-3" class="rb-step pt-6 hidden" aria-labelledby="step-3-title">
+                <h2 id="step-3-title" class="rb-step-title" tabindex="-1">What are you good at?</h2>
+                <p class="rb-step-sub">Tap any cards, licenses or strengths you have.</p>
+
+                <div class="rb-chips mt-6" id="skills-chips-container">
+                    <button type="button" class="skill-chip ns-chip" aria-pressed="false" data-val="Food Handler Card"><span class="material-symbols-outlined rb-check">check</span>Food handler card</button>
+                    <button type="button" class="skill-chip ns-chip" aria-pressed="false" data-val="Forklift Certified"><span class="material-symbols-outlined rb-check">check</span>Forklift certified</button>
+                    <button type="button" class="skill-chip ns-chip" aria-pressed="false" data-val="Heavy Lifting 50+ lbs"><span class="material-symbols-outlined rb-check">check</span>Can lift 50+ lbs</button>
+                    <button type="button" class="skill-chip ns-chip" aria-pressed="false" data-val="Reliable & Punctual"><span class="material-symbols-outlined rb-check">check</span>Reliable and on time</button>
+                    <button type="button" class="skill-chip ns-chip" aria-pressed="false" data-val="Bilingual / Multilingual"><span class="material-symbols-outlined rb-check">check</span>Speak more than one language</button>
+                    <button type="button" class="skill-chip ns-chip" aria-pressed="false" data-val="OSHA 10 Safety"><span class="material-symbols-outlined rb-check">check</span>OSHA 10 safety</button>
+                    <button type="button" class="skill-chip ns-chip" aria-pressed="false" data-val="Pallet Jack Operator"><span class="material-symbols-outlined rb-check">check</span>Pallet jack</button>
+                    <button type="button" class="skill-chip ns-chip" aria-pressed="false" data-val="First Aid & CPR"><span class="material-symbols-outlined rb-check">check</span>First aid and CPR</button>
+                </div>
+            </section>
+
+            <!-- STEP 4: TARGET JOB TYPES -->
+            <section id="step-4" class="rb-step pt-6 hidden" aria-labelledby="step-4-title">
+                <h2 id="step-4-title" class="rb-step-title" tabindex="-1">What kind of job do you want?</h2>
+                <p class="rb-step-sub">Tap one or more. Your resume will focus on these.</p>
+
+                <div class="rb-chips mt-6" id="roles-chips-container">
+                    <button type="button" class="role-chip ns-chip" aria-pressed="false" data-val="Kitchen Prep & Dishwasher"><span class="material-symbols-outlined rb-check">check</span>Kitchen staff and prep</button>
+                    <button type="button" class="role-chip ns-chip" aria-pressed="false" data-val="Warehouse & Logistics Associate"><span class="material-symbols-outlined rb-check">check</span>Warehouse associate</button>
+                    <button type="button" class="role-chip ns-chip" aria-pressed="false" data-val="General Laborer"><span class="material-symbols-outlined rb-check">check</span>General laborer</button>
+                    <button type="button" class="role-chip ns-chip" aria-pressed="false" data-val="Sanitation & Janitorial"><span class="material-symbols-outlined rb-check">check</span>Custodial and sanitation</button>
+                    <button type="button" class="role-chip ns-chip" aria-pressed="false" data-val="Retail Stocker & Cashier"><span class="material-symbols-outlined rb-check">check</span>Retail stocker or cashier</button>
+                </div>
+            </section>
+
+            <!-- STEP 5: EDUCATION & CERTIFICATIONS -->
+            <section id="step-5" class="rb-step pt-6 hidden" aria-labelledby="step-5-title">
+                <h2 id="step-5-title" class="rb-step-title" tabindex="-1">School and training</h2>
+                <p class="rb-step-sub">Optional. Put each one on its own line.</p>
+
+                <div class="mt-6">
+                    <div class="rb-field">
+                        <label for="input-education" class="ns-label">Education</label>
+                        <textarea id="input-education" rows="3" class="ns-textarea" placeholder="Eastlake High School, Sammamish, WA&#10;GED"></textarea>
+                    </div>
+                    <div class="rb-field">
+                        <label for="input-custom-certifications" class="ns-label">Other certificates or training</label>
+                        <textarea id="input-custom-certifications" rows="3" class="ns-textarea" placeholder="Flagger card&#10;ServSafe"></textarea>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- LOADING -->
+        <div id="loading-spinner" class="hidden flex-col items-center justify-center text-center py-20 no-print" role="status" aria-live="polite">
+            <div class="rb-spinner"></div>
+            <h2 class="text-[20px] font-bold mt-6">Writing your resume…</h2>
+            <p class="text-[14px] font-medium text-muted mt-2 max-w-[280px]">This can take a minute or two. Please keep this page open.</p>
+        </div>
+
+        <!-- VIEW 2: RESUME PREVIEW -->
+        <div id="view-preview-container" class="hidden pt-2">
+
+            <!-- Shown until a resume has been made -->
+            <div id="preview-empty" class="ns-empty hidden no-print">
+                <p class="ns-empty__title">No resume yet</p>
+                <p class="ns-empty__sub">Answer the questions and we’ll write it for you.</p>
+                <button type="button" onclick="switchView('wizard')" class="ns-btn ns-btn--primary ns-btn--sm mt-4">Answer the questions</button>
+            </div>
+
+            <div id="preview-content">
+                <p class="flex items-center gap-2 text-[13px] font-semibold text-ink-2 mb-3 no-print action-buttons-toolbar">
+                    <span class="material-symbols-outlined text-[18px]">edit</span> Tap any line to change it.
+                </p>
+
+                <!-- PRINTABLE RESUME -->
+                <article id="printable-resume" class="rb-paper">
+                    <div class="rb-head">
+                        <div class="min-w-0 flex-1">
+                            <h1 id="res-name" contenteditable="true"></h1>
+                            <div class="rb-contact">
+                                <span id="res-phone" contenteditable="true"></span>
+                                <span id="res-location" contenteditable="true"></span>
+                                <span id="res-contact" contenteditable="true"></span>
+                            </div>
+                        </div>
+                        <div id="res-photo-header-wrapper" class="hidden flex-shrink-0">
+                            <img id="res-photo-header-img" src="" alt="" class="rb-photo">
+                        </div>
+                    </div>
+
+                    <section class="rb-sec">
+                        <h2>Summary</h2>
+                        <p id="res-summary" contenteditable="true"></p>
+                    </section>
+
+                    <section class="rb-sec">
+                        <h2>Skills</h2>
+                        <div class="rb-skills-grid">
+                            <div>
+                                <p class="rb-sub">Certifications and licenses</p>
+                                <ul id="res-skills-certs" contenteditable="true"></ul>
+                            </div>
+                            <div>
+                                <p class="rb-sub">Practical skills</p>
+                                <ul id="res-skills-practical" contenteditable="true"></ul>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="rb-sec">
+                        <h2>Experience</h2>
+                        <div id="res-experience-list"></div>
+                    </section>
+
+                    <section class="rb-sec">
+                        <h2>Education and training</h2>
+                        <ul id="res-education" contenteditable="true"></ul>
+                    </section>
+                </article>
+
+                <div class="mt-6 flex flex-col gap-3 no-print">
+                    <button type="button" onclick="exportToPDF()" class="ns-btn ns-btn--primary">
+                        <span class="material-symbols-outlined">print</span> Print or save as PDF
+                    </button>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button type="button" onclick="copyCleanText()" class="ns-btn ns-btn--ghost">
+                            <span class="material-symbols-outlined">content_copy</span> <span class="rb-copy-label">Copy text</span>
+                        </button>
+                        <button type="button" onclick="switchView('wizard')" class="ns-btn ns-btn--ghost">
+                            <span class="material-symbols-outlined">tune</span> Edit answers
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Jobs that match this resume (filled by matchAndRenderJobs in js/northstar.js) -->
+                <div id="matched-jobs-container" class="no-print"></div>
+            </div>
+        </div>
+
+        <!-- VIEW 3: PLAIN TEXT -->
+        <div id="view-text-container" class="hidden pt-2 no-print">
+            <div id="text-empty" class="ns-empty hidden">
+                <p class="ns-empty__title">No resume yet</p>
+                <p class="ns-empty__sub">Once your resume is ready, the plain text shows up here.</p>
+                <button type="button" onclick="switchView('wizard')" class="ns-btn ns-btn--primary ns-btn--sm mt-4">Answer the questions</button>
+            </div>
+            <div id="text-content">
+                <p class="text-[14px] font-medium text-ink-2">Paste this into online job applications or emails. It has no formatting, so it works everywhere.</p>
+                <label for="ats-plain-text-area" class="sr-only">Resume as plain text</label>
+                <textarea id="ats-plain-text-area" rows="18" readonly class="ns-textarea rb-plaintext mt-4"></textarea>
+                <button type="button" onclick="copyCleanText()" class="ns-btn ns-btn--primary mt-4">
+                    <span class="material-symbols-outlined">content_copy</span> <span class="rb-copy-label">Copy all text</span>
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Wizard actions, in the thumb zone -->
+    <div id="wizard-actions" class="rb-actions no-print">
+        <button type="button" id="btn-wizard-back" onclick="rbBack()" class="ns-btn ns-btn--ghost hidden">Back</button>
+        <button type="button" id="btn-wizard-next" onclick="rbNext()" class="ns-btn ns-btn--primary">Next</button>
+        <button type="button" id="btn-generate-resume" onclick="generateResume()" class="ns-btn ns-btn--primary hidden">Create my resume</button>
+    </div>
+
+    <nav class="bottom-nav ns-nav" aria-label="Main"></nav>
+
+</div>
+
+<script src="js/northstar.js"></script>
+    <script src="js/jobs.js"></script>
+<script>
+// ============================================================
+// RESUME BUILDER
+// Single canonical source of truth for generated resume state.
+// ============================================================
+
+// These two variables are the ONLY authoritative resume state.
+// They persist across SPA re-evals because they are on window.
+// Never read from localStorage or old DOM after generation.
+window.currentGeneratedResumeText = window.currentGeneratedResumeText || '';
+window.currentGeneratedResumeData = window.currentGeneratedResumeData || null;
+
+// Profile photo state (page-local; reset is fine on nav)
+let uploadedResumePhotoBase64 = '';
+
+// ============================================================
+// Photo Upload
+// ============================================================
+function handleResumePhotoUpload(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    uploadedResumePhotoBase64 = e.target.result;
+
+    const previewImg = document.getElementById('photo-preview-img');
+    const placeholderIcon = document.getElementById('photo-placeholder-icon');
+    const removeBtn = document.getElementById('remove-photo-btn');
+
+    if (previewImg) { previewImg.src = uploadedResumePhotoBase64; previewImg.classList.remove('hidden'); }
+    if (placeholderIcon) placeholderIcon.classList.add('hidden');
+    if (removeBtn) removeBtn.classList.remove('hidden');
+
+    const headerImg = document.getElementById('res-photo-header-img');
+    const headerWrapper = document.getElementById('res-photo-header-wrapper');
+    if (headerImg && headerWrapper) {
+      headerImg.src = uploadedResumePhotoBase64;
+      headerWrapper.classList.remove('hidden');
+    }
+
+    if (window.showNotification) showNotification('Profile photo attached to resume!', 'success');
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeResumePhoto() {
+  uploadedResumePhotoBase64 = '';
+  const previewImg = document.getElementById('photo-preview-img');
+  const placeholderIcon = document.getElementById('photo-placeholder-icon');
+  const removeBtn = document.getElementById('remove-photo-btn');
+  const fileInput = document.getElementById('input-photo');
+
+  if (fileInput) fileInput.value = '';
+  if (previewImg) { previewImg.src = ''; previewImg.classList.add('hidden'); }
+  if (placeholderIcon) placeholderIcon.classList.remove('hidden');
+  if (removeBtn) removeBtn.classList.add('hidden');
+
+  const headerImg = document.getElementById('res-photo-header-img');
+  const headerWrapper = document.getElementById('res-photo-header-wrapper');
+  if (headerImg && headerWrapper) { headerImg.src = ''; headerWrapper.classList.add('hidden'); }
+
+  if (window.showNotification) showNotification('Profile photo removed.', 'info');
+}
+
+// ============================================================
+// Chip Toggles
+// ============================================================
+function initChipToggles() {
+  const chipGroups = ['.chip-btn', '.skill-chip', '.role-chip'];
+  chipGroups.forEach(selector => {
+    document.querySelectorAll(selector).forEach(btn => {
+      // Prevent double-binding
+      if (btn.dataset.chipBound) return;
+      btn.dataset.chipBound = '1';
+      btn.addEventListener('click', () => {
+        const on = btn.classList.toggle('active-chip');
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+    });
+  });
+}
+
+function getSelectedChips(selector) {
+  const selected = [];
+  document.querySelectorAll(`${selector}.active-chip`).forEach(el => {
+    selected.push(el.dataset.val || el.innerText.trim());
+  });
+  return selected;
+}
+
+// ============================================================
+// View Switching — does NOT touch resume data, only visibility
+// ============================================================
+function switchView(viewName) {
+  const wizardContainer = document.getElementById('view-wizard-container');
+  const previewContainer = document.getElementById('view-preview-container');
+  const textContainer = document.getElementById('view-text-container');
+  const tabWizard = document.getElementById('tab-wizard');
+  const tabPreview = document.getElementById('tab-preview');
+  const tabText = document.getElementById('tab-text');
+
+  if (!wizardContainer || !previewContainer || !textContainer) return;
+  // While the resume is being written, stay on the loading screen
+  if (window.rbGenerating) return;
+
+  const setTab = (t, on) => {
+    if (!t) return;
+    t.classList.toggle('is-active', on);
+    t.setAttribute('aria-pressed', on ? 'true' : 'false');
+  };
+  [tabWizard, tabPreview, tabText].forEach(t => setTab(t, false));
+  wizardContainer.classList.add('hidden');
+  previewContainer.classList.add('hidden');
+  textContainer.classList.add('hidden');
+
+  const hasResume = !!(window.currentGeneratedResumeData || window.currentGeneratedResumeText);
+  const main = document.querySelector('main');
+
+  if (viewName === 'wizard') {
+    wizardContainer.classList.remove('hidden');
+    setTab(tabWizard, true);
+    rbSetActionsVisible(true);
+  } else if (viewName === 'preview') {
+    previewContainer.classList.remove('hidden');
+    setTab(tabPreview, true);
+    rbSetActionsVisible(false);
+    const empty = document.getElementById('preview-empty');
+    const content = document.getElementById('preview-content');
+    if (empty) empty.classList.toggle('hidden', hasResume);
+    if (content) content.classList.toggle('hidden', !hasResume);
+    // Scroll preview to top
+    if (main) main.scrollTop = 0;
+  } else if (viewName === 'text') {
+    textContainer.classList.remove('hidden');
+    setTab(tabText, true);
+    rbSetActionsVisible(false);
+    const empty = document.getElementById('text-empty');
+    const content = document.getElementById('text-content');
+    if (empty) empty.classList.toggle('hidden', hasResume);
+    if (content) content.classList.toggle('hidden', !hasResume);
+    if (main) main.scrollTop = 0;
+    // Always regenerate ATS text from canonical state when tab opens
+    generatePlainText();
+  }
+}
+
+// ============================================================
+// Wizard steps — one question group per screen
+// ============================================================
+const RB_STEP_NAMES = ['Contact', 'Work', 'Skills', 'Job types', 'School'];
+const RB_TOTAL_STEPS = RB_STEP_NAMES.length;
+let rbCurrentStep = 1;
+
+function rbSetActionsVisible(show) {
+  // Guests see the sign-in lock over the questions, so keep the step buttons out of the way
+  try { const ses = typeof getSession === 'function' ? getSession() : null; if (ses && ses.isGuest) show = false; } catch (e) {}
+  const bar = document.getElementById('wizard-actions');
+  if (bar) bar.classList.toggle('hidden', !show);
+  const frame = document.querySelector('.app-frame');
+  if (frame) frame.classList.toggle('rb-has-actions', !!show);
+}
+
+function rbShowError(msg) {
+  const box = document.getElementById('resume-error');
+  if (!box) return;
+  box.textContent = msg || '';
+  box.classList.toggle('hidden', !msg);
+}
+
+function rbGoToStep(n, focus = true) {
+  rbCurrentStep = Math.min(Math.max(1, n), RB_TOTAL_STEPS);
+  for (let i = 1; i <= RB_TOTAL_STEPS; i++) {
+    const s = document.getElementById('step-' + i);
+    if (s) s.classList.toggle('hidden', i !== rbCurrentStep);
+  }
+  const label = document.getElementById('wizard-step-label');
+  const name = document.getElementById('wizard-progress-percent');
+  const bar = document.getElementById('wizard-progress-bar');
+  const pb = document.getElementById('wizard-progressbar');
+  if (label) label.textContent = `Step ${rbCurrentStep} of ${RB_TOTAL_STEPS}`;
+  if (name) name.textContent = RB_STEP_NAMES[rbCurrentStep - 1];
+  if (bar) bar.style.width = `${(rbCurrentStep / RB_TOTAL_STEPS) * 100}%`;
+  if (pb) pb.setAttribute('aria-valuenow', String(rbCurrentStep));
+
+  const isLast = rbCurrentStep === RB_TOTAL_STEPS;
+  document.getElementById('btn-wizard-back')?.classList.toggle('hidden', rbCurrentStep === 1);
+  document.getElementById('btn-wizard-next')?.classList.toggle('hidden', isLast);
+  document.getElementById('btn-generate-resume')?.classList.toggle('hidden', !isLast);
+
+  const main = document.querySelector('main');
+  if (main) main.scrollTop = 0;
+  if (focus) document.getElementById(`step-${rbCurrentStep}-title`)?.focus({ preventScroll: true });
+}
+
+function rbValidateName() {
+  const input = document.getElementById('input-name');
+  const err = document.getElementById('input-name-error');
+  const ok = !!(input && input.value.trim());
+  if (input) { input.classList.toggle('is-invalid', !ok); input.setAttribute('aria-invalid', ok ? 'false' : 'true'); }
+  if (err) err.classList.toggle('hidden', ok);
+  return ok;
+}
+
+function rbNext() {
+  if (rbCurrentStep === 1 && !rbValidateName()) {
+    document.getElementById('input-name')?.focus();
+    return;
+  }
+  rbGoToStep(rbCurrentStep + 1);
+}
+
+function rbBack() {
+  rbGoToStep(rbCurrentStep - 1);
+}
+
+// ============================================================
+// Resume Parser — reads result.resume text as source of truth
+// ============================================================
+function parseValidatedResume(resumeText, fallbackData = {}) {
+  console.log('[NorthStar] RAW resume entering parser:', resumeText);
+
+  if (!resumeText || typeof resumeText !== 'string') {
+    throw new Error('NorthStar AI returned empty resume text.');
+  }
+
+  let cleanText = resumeText
+    .replace(/```[a-zA-Z]*\s*/g, '')
+    .replace(/```/g, '')
+    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+    .trim();
+
+  const rawLines = cleanText
+    .split(/\r?\n/)
+    .map(line => line.trim());
+
+  const sections = {
+    HEADER: [],
+    SUMMARY: [],
+    CERTIFICATIONS: [],
+    EDUCATION: [],
+    EXPERIENCE: [],
+    SKILLS: []
+  };
+
+  let section = 'HEADER';
+
+  function normalizeHeading(line) {
+    return line
+      .replace(/^#+\s*/, '')
+      .replace(/\*\*/g, '')
+      .replace(/__+/g, '')
+      .replace(/:$/, '')
+      .trim()
+      .toUpperCase();
+  }
+
+  for (const originalLine of rawLines) {
+    if (!originalLine) continue;
+
+    const line = originalLine
+      .replace(/^#+\s*/, '')
+      .replace(/\*\*/g, '')
+      .trim();
+
+    const heading = normalizeHeading(line);
+
+    if (
+      heading === 'SUMMARY' ||
+      heading === 'PROFESSIONAL SUMMARY'
+    ) {
+      section = 'SUMMARY';
+      continue;
+    }
+
+    if (
+      heading === 'CERTIFICATIONS' ||
+      heading === 'CERTIFICATION' ||
+      heading === 'CERTIFICATIONS & LICENSES' ||
+      heading === 'CERTIFICATIONS AND LICENSES'
+    ) {
+      section = 'CERTIFICATIONS';
+      continue;
+    }
+
+    if (
+      heading === 'EDUCATION' ||
+      heading === 'CERTIFICATIONS & EDUCATION' ||
+      heading === 'EDUCATION & CERTIFICATIONS'
+    ) {
+      section = 'EDUCATION';
+      continue;
+    }
+
+    if (
+      heading === 'RELEVANT EXPERIENCE' ||
+      heading === 'EXPERIENCE' ||
+      heading === 'WORK EXPERIENCE' ||
+      heading === 'WORK & PRACTICAL EXPERIENCE' ||
+      heading === 'PRACTICAL EXPERIENCE'
+    ) {
+      section = 'EXPERIENCE';
+      continue;
+    }
+
+    if (
+      heading === 'SKILLS' ||
+      heading === 'CORE SKILLS' ||
+      heading === 'CORE COMPETENCIES' ||
+      heading === 'CORE COMPETENCIES & SKILLS' ||
+      heading === 'PRACTICAL & SOFT SKILLS'
+    ) {
+      section = 'SKILLS';
+      continue;
+    }
+
+    sections[section].push(line);
+  }
+
+  // ----------------------------------------------------------
+  // CONTACT INFORMATION
+  // The current Guided Wizard values are confirmed user facts.
+  // They take priority over parser guesses.
+  // ----------------------------------------------------------
+
+  let parsedName = fallbackData.name || '';
+  let parsedPhone = fallbackData.phone || '';
+  let parsedLocation = fallbackData.location || '';
+
+  const header = sections.HEADER;
+
+  if (!parsedName && header.length > 0) {
+    parsedName = header[0];
+  }
+
+  if ((!parsedPhone || !parsedLocation) && header.length > 1) {
+    const contactLine = header.find(line => line.includes('|'));
+
+    if (contactLine) {
+      const parts = contactLine
+        .split('|')
+        .map(part => part.trim())
+        .filter(Boolean);
+
+      for (const part of parts) {
+        const looksLikePhone =
+          /\(?\d{3}\)?[\s.-]*\d{3}[\s.-]*\d{4}/.test(part);
+
+        if (looksLikePhone && !parsedPhone) {
+          parsedPhone = part;
+        } else if (!looksLikePhone && !parsedLocation) {
+          parsedLocation = part;
+        } else if (/\d{3}/.test(part) && !parsedPhone) {
+          parsedPhone = part;
+        } else if (!parsedLocation) {
+          parsedLocation = part;
+        }
+      }
+    }
+  }
+
+  const summary = sections.SUMMARY.join(' ').trim();
+  
+  const practicalSkills = [];
+  for (const line of sections.SKILLS) {
+    const items = line.replace(/^[-•*]\s*/, '').split('|').map(item => item.trim()).filter(Boolean);
+    practicalSkills.push(...items);
+  }
+
+  const certifications = [];
+  for (const line of sections.CERTIFICATIONS) {
+    const items = line.replace(/^[-•*]\s*/, '').split('|').map(item => item.trim()).filter(Boolean);
+    certifications.push(...items);
+  }
+  
+  const certifications_education = [];
+  for (const line of sections.EDUCATION) {
+    const items = line.replace(/^[-•*]\s*/, '').split('|').map(item => item.trim()).filter(Boolean);
+    certifications_education.push(...items);
+  }
+
+  const experience = [];
+  let currentExperience = null;
+
+  for (const line of sections.EXPERIENCE) {
+    const isBullet = /^[-•*]\s*/.test(line);
+
+    if (isBullet) {
+      const bulletText = line.replace(/^[-•*]\s*/, '').trim();
+      if (!currentExperience) {
+        currentExperience = { role: 'Relevant Experience', duration: '', organization: '', bullets: [] };
+        experience.push(currentExperience);
+      }
+      currentExperience.bullets.push(bulletText);
+      continue;
+    }
+
+    currentExperience = { role: line, duration: '', organization: '', bullets: [] };
+    experience.push(currentExperience);
+  }
+
+  if (certifications.length === 0 && Array.isArray(fallbackData.certifications)) {
+    certifications.push(...fallbackData.certifications);
+  }
+
+  if (practicalSkills.length === 0 && Array.isArray(fallbackData.skills)) {
+    practicalSkills.push(...fallbackData.skills);
+  }
+  
+  if (certifications_education.length === 0 && Array.isArray(fallbackData.education)) {
+    certifications_education.push(...fallbackData.education);
+  }
+
+  const parsed = {
+    contact_info: {
+      name: parsedName,
+      phone: parsedPhone,
+      location: parsedLocation,
+      contact: ''
+    },
+    summary,
+    skills: {
+      certifications,
+      practical_skills: practicalSkills,
+      core_strengths: []
+    },
+    experience,
+    certifications_education
+  };
+
+  console.log(
+    '[NorthStar] FINAL PARSED RESUME:',
+    JSON.stringify(parsed, null, 2)
+  );
+
+  return parsed;
+}
+
+// ============================================================
+// Populate DOM — ALWAYS clears old content first
+// ============================================================
+function populateResumeData(data) {
+  if (!data) { console.error('[NorthStar] populateResumeData: no data'); return; }
+
+  const c = data.contact_info || {};
+
+  // --- Contact Header ---
+  const nameEl = document.getElementById('res-name');
+  const phoneEl = document.getElementById('res-phone');
+  const locationEl = document.getElementById('res-location');
+  const contactEl = document.getElementById('res-contact');
+
+  if (nameEl) nameEl.innerText = c.name || '';
+  if (phoneEl) phoneEl.innerText = c.phone || '';
+  if (locationEl) locationEl.innerText = c.location || '';
+  if (contactEl) contactEl.innerText = '';  // Privacy: never display shelter contact
+
+  // --- Summary ---
+  const summaryEl = document.getElementById('res-summary');
+  if (summaryEl) summaryEl.innerText = data.summary || '';
+
+  // --- Skills & Certifications (always overwrite innerHTML) ---
+  const certsList = document.getElementById('res-skills-certs');
+  const practicalList = document.getElementById('res-skills-practical');
+
+  const certs = (data.skills && data.skills.certifications) ? data.skills.certifications : [];
+  const practical = [
+    ...((data.skills && data.skills.practical_skills) ? data.skills.practical_skills : []),
+    ...((data.skills && data.skills.core_strengths) ? data.skills.core_strengths : [])
+  ];
+
+  const esc = (v) => (typeof window.nsEscape === 'function' ? window.nsEscape(v == null ? '' : String(v)) : String(v == null ? '' : v).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch])));
+
+  if (certsList) certsList.innerHTML = certs.map(i => `<li contenteditable="true">${esc(i)}</li>`).join('');
+  if (practicalList) practicalList.innerHTML = practical.map(i => `<li contenteditable="true">${esc(i)}</li>`).join('');
+
+  // --- Experience (always overwrite innerHTML, even if empty) ---
+  const expContainer = document.getElementById('res-experience-list');
+  if (expContainer) {
+    const expData = data.experience || [];
+    expContainer.innerHTML = expData.map(exp => `
+      <div class="exp-block">
+        <div class="exp-line">
+          <span contenteditable="true" class="exp-role">${esc(exp.role || '')}</span>
+          <span contenteditable="true" class="exp-duration">${esc(exp.duration || '')}</span>
+        </div>
+        <div contenteditable="true" class="exp-org">${esc(exp.organization || '')}</div>
+        <ul class="exp-bullets">
+          ${(exp.bullets || []).map(b => `<li contenteditable="true">${esc(b)}</li>`).join('')}
+        </ul>
+      </div>
+    `).join('');
+  }
+
+  // --- Education / Certifications (always overwrite innerHTML) ---
+  const eduList = document.getElementById('res-education');
+  if (eduList) {
+    const eduData = data.certifications_education || [];
+    eduList.innerHTML = eduData.map(e => `<li contenteditable="true">${esc(e)}</li>`).join('');
+  }
+
+  console.log('[NorthStar] populateResumeData complete. Name =', c.name, 'Phone =', c.phone);
+}
+
+// ============================================================
+// Generate Plain Text for ATS tab
+// ============================================================
+function generatePlainText() {
+  const textarea = document.getElementById('ats-plain-text-area');
+  if (!textarea) return;
+
+  // ALWAYS use the canonical generated text when available.
+  // This guarantees ATS matches the same generation as Preview.
+  if (window.currentGeneratedResumeText) {
+    textarea.value = window.currentGeneratedResumeText;
+    return;
+  }
+
+  // Fallback: reconstruct from live DOM (only if no generation has happened yet)
+  const name = document.getElementById('res-name')?.innerText || '';
+  const phone = document.getElementById('res-phone')?.innerText || '';
+  const location = document.getElementById('res-location')?.innerText || '';
+  const summary = document.getElementById('res-summary')?.innerText || '';
+
+  let text = `${name.toUpperCase()}\n`;
+  text += `${phone} | ${location}\n\n`;
+  text += `========================================\nPROFESSIONAL SUMMARY\n========================================\n${summary}\n\n`;
+  text += `========================================\nCORE COMPETENCIES & SKILLS\n========================================\n`;
+  document.querySelectorAll('#res-skills-certs li, #res-skills-practical li').forEach(li => { text += `• ${li.innerText}\n`; });
+  text += '\n========================================\nWORK & PRACTICAL EXPERIENCE\n========================================\n';
+  document.querySelectorAll('.exp-block').forEach(block => {
+    const role = block.querySelector('.exp-role')?.innerText || '';
+    const duration = block.querySelector('.exp-duration')?.innerText || '';
+    const org = block.querySelector('.exp-org')?.innerText || '';
+    text += `${role.toUpperCase()} (${duration})\n${org}\n`;
+    block.querySelectorAll('.exp-bullets li').forEach(b => { text += `  - ${b.innerText}\n`; });
+    text += '\n';
+  });
+  text += '========================================\nCERTIFICATIONS & EDUCATION\n========================================\n';
+  document.querySelectorAll('#res-education li').forEach(li => { text += `• ${li.innerText}\n`; });
+  textarea.value = text;
+}
+
+// ============================================================
+// Copy & Export
+// ============================================================
+// navigator.clipboard only exists on https/localhost; elsewhere (http on the phone) fall back to a selection copy
+function rbWriteClipboard(text, sourceEl) {
+  const legacy = () => {
+    try {
+      let el = sourceEl;
+      let temp = null;
+      if (!el) {
+        temp = document.createElement('textarea');
+        temp.value = text;
+        temp.setAttribute('readonly', '');
+        temp.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none';
+        document.body.appendChild(temp);
+        el = temp;
+      }
+      el.focus();
+      el.select();
+      if (el.setSelectionRange) el.setSelectionRange(0, el.value.length);
+      const ok = document.execCommand('copy');
+      if (temp) temp.remove();
+      return ok;
+    } catch (e) { return false; }
+  };
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    return navigator.clipboard.writeText(text).then(() => true, () => legacy());
+  }
+  return Promise.resolve(legacy());
+}
+
+function copyCleanText() {
+  // Generate the latest text first, then copy
+  generatePlainText();
+  const textarea = document.getElementById('ats-plain-text-area');
+  if (!textarea || !textarea.value) {
+    // Fallback: copy directly from currentGeneratedResumeText
+    if (window.currentGeneratedResumeText) {
+      rbWriteClipboard(window.currentGeneratedResumeText).then(ok => {
+        if (ok) { rbCopied(); if (window.showNotification) showNotification('Resume text copied to clipboard!', 'success'); }
+        else if (window.showNotification) showNotification('Copy failed. Please copy manually.', 'error');
+      });
+      return;
+    }
+    if (window.showNotification) showNotification('No resume to copy yet. Generate a resume first.', 'info');
+    return;
+  }
+  rbWriteClipboard(textarea.value, textarea).then(ok => {
+    if (ok) { rbCopied(); if (window.showNotification) showNotification('Resume text copied to clipboard!', 'success'); }
+    else if (window.showNotification) showNotification('Copy failed. Please copy manually.', 'error');
+  });
+}
+
+// Real feedback on the copy buttons (only after the clipboard write succeeded)
+function rbCopied() {
+  document.querySelectorAll('.rb-copy-label').forEach(el => {
+    if (!el.dataset.label) el.dataset.label = el.textContent;
+    el.textContent = 'Copied';
+    clearTimeout(el._rbT);
+    el._rbT = setTimeout(() => { el.textContent = el.dataset.label; }, 2000);
+  });
+}
+
+function exportToPDF() {
+  window.print();
+}
+
+// ============================================================
+// Main Generation Function
+// ============================================================
+async function generateResume() {
+  const nameInput = document.getElementById('input-name');
+  const phoneInput = document.getElementById('input-phone');
+  const contactInput = document.getElementById('input-contact');
+  const locationInput = document.getElementById('input-location');
+  const notesInput = document.getElementById('input-informal-notes');
+  const eduInput = document.getElementById('input-education');
+  const customCertsInput = document.getElementById('input-custom-certifications');
+  const generateBtn = document.getElementById('btn-generate-resume');
+
+  const name = (nameInput && nameInput.value) ? nameInput.value.trim() : '';
+  const phone = (phoneInput && phoneInput.value) ? phoneInput.value.trim() : '';
+  const contactInfo = (contactInput && contactInput.value) ? contactInput.value.trim() : '';
+  const location = (locationInput && locationInput.value) ? locationInput.value.trim() : '';
+  const informalNotes = (notesInput && notesInput.value) ? notesInput.value.trim() : '';
+  
+  const rawEdu = (eduInput && eduInput.value) ? eduInput.value.trim() : '';
+  const eduArr = rawEdu ? rawEdu.split('\n').map(s => s.trim()).filter(Boolean) : [];
+
+  const rawCerts = (customCertsInput && customCertsInput.value) ? customCertsInput.value.trim() : '';
+  const customCertsArr = rawCerts ? rawCerts.split('\n').map(s => s.trim()).filter(Boolean) : [];
+
+  if (!name) {
+    rbGoToStep(1, false);
+    rbValidateName();
+    if (nameInput) nameInput.focus();
+    if (window.showNotification) showNotification('Please enter your name.', 'error');
+    return;
+  }
+  rbShowError('');
+
+  const experienceTypes = getSelectedChips('.chip-btn');
+  const skillsCertifications = getSelectedChips('.skill-chip');
+  const targetRoles = getSelectedChips('.role-chip');
+
+  const certificationNames = ['Food Handler Card', 'Forklift Certified', 'OSHA 10 Safety', 'First Aid & CPR'];
+  const certifications = [...skillsCertifications.filter(i => certificationNames.includes(i)), ...customCertsArr];
+  const practicalSkills = skillsCertifications.filter(i => !certificationNames.includes(i));
+
+  const confirmedNumbers = [];
+  if (skillsCertifications.includes('Heavy Lifting 50+ lbs')) confirmedNumbers.push('50+');
+  const contactNumbers = phone.match(/\d+/g) || [];
+
+  const confirmed = {
+    name, phone, location,
+    alternate_contact: contactInfo,
+    experience_categories: experienceTypes,
+    tasks: informalNotes ? [informalNotes] : [],
+    employers: [],
+    possible_employers: contactInfo ? [contactInfo] : [],
+    job_titles: [], unconfirmed_job_titles: [],
+    dates: [], durations: [],
+    confirmed_numbers: confirmedNumbers,
+    contact_numbers: contactNumbers,
+    certifications, 
+    education: eduArr,
+    languages: [],
+    skills: practicalSkills,
+    target_jobs: targetRoles
+  };
+
+  console.log('[NorthStar] WIZARD DATA sent to API:', JSON.stringify(confirmed, null, 2));
+
+  // Runs as a background job on the server so leaving this page doesn't stop it
+  rbShowGenerating();
+
+  try {
+    if (window.nsResumeJob) {
+      await window.nsResumeJob.start(confirmed);
+      rbWatchResumeJob();
+      return;
+    }
+    // Fallback (shared script missing): wait on the request directly
+    const response = await fetch('/api/generate-resume', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(confirmed)
+    });
+    const result = await response.json();
+    if (!response.ok || !result.success || !result.resume) {
+      throw new Error(result.error || 'Generation failed — no resume returned from API');
+    }
+    rbApplyResumeResult(result, confirmed);
+  } catch (err) {
+    rbApplyResumeFailure(err);
+  }
+}
+
+// --- Loading state while the resume is being written ---
+function rbShowGenerating() {
+  const wizardContainer = document.getElementById('view-wizard-container');
+  const loadingSpinner = document.getElementById('loading-spinner');
+  const generateBtn = document.getElementById('btn-generate-resume');
+  if (wizardContainer) wizardContainer.classList.add('hidden');
+  if (loadingSpinner) { loadingSpinner.classList.remove('hidden'); loadingSpinner.classList.add('flex'); }
+  if (generateBtn) generateBtn.disabled = true;
+  rbSetActionsVisible(false);
+  window.rbGenerating = true;
+  const mainEl = document.querySelector('main');
+  if (mainEl) mainEl.scrollTop = 0;
+}
+
+function rbStopGenerating() {
+  const loadingSpinner = document.getElementById('loading-spinner');
+  const generateBtn = document.getElementById('btn-generate-resume');
+  if (loadingSpinner) { loadingSpinner.classList.add('hidden'); loadingSpinner.classList.remove('flex'); }
+  if (generateBtn) generateBtn.disabled = false;
+  window.rbGenerating = false;
+}
+
+// Wait for the background job (started here or before leaving the page) to finish
+let rbJobListener = null;
+function rbWatchResumeJob() {
+  if (!window.nsResumeJob) return;
+  if (rbJobListener) window.removeEventListener('ns:resume-job', rbJobListener);
+  rbJobListener = (e) => rbHandleFinishedJob(e.detail);
+  window.addEventListener('ns:resume-job', rbJobListener);
+  window.nsResumeJob.watch();
+}
+
+function rbHandleFinishedJob(job) {
+  if (!job || job.status === 'running') return;
+  if (rbJobListener) { window.removeEventListener('ns:resume-job', rbJobListener); rbJobListener = null; }
+  window.nsResumeJob.clear();
+  document.getElementById('ns-resume-ready-pill')?.remove();
+  const result = job.result || {};
+  if (job.status === 'done' && result.success && result.resume) {
+    try {
+      rbApplyResumeResult(result, job.confirmed || {});
+    } catch (err) {
+      rbApplyResumeFailure(err);
+    }
+  } else {
+    rbApplyResumeFailure(new Error(result.error || 'Generation failed — no resume returned from API'));
+  }
+}
+
+function rbApplyResumeResult(result, confirmed) {
+  console.log('[NorthStar] RAW NEW RESUME:\n', result.resume);
+  console.log('[NorthStar] Validation:', result.validation);
+  console.log('[NorthStar] Repairs:', result.repairs);
+
+  // ----------------------------------------------------------------
+  // CANONICAL STATE UPDATE — this is the single source of truth
+  // ----------------------------------------------------------------
+  const parsedResume = parseValidatedResume(result.resume, confirmed);
+
+  if (!parsedResume.summary &&
+      !parsedResume.experience.length &&
+      !parsedResume.skills.certifications.length &&
+      !parsedResume.skills.practical_skills.length) {
+    throw new Error('Generated resume could not be parsed.');
+  }
+
+  window.currentGeneratedResumeText = result.resume;
+  window.currentGeneratedResumeData = parsedResume;
+
+  // Completely replace the preview DOM
+  populateResumeData(window.currentGeneratedResumeData);
+
+  // Persist the new resume (for logged-in users; no-op for guests)
+  if (typeof window.saveResumeData === 'function') {
+    window.saveResumeData(window.currentGeneratedResumeData);
+  }
+
+  // Also persist to a direct localStorage key for cross-page resilience
+  try {
+    localStorage.setItem('northstar_latest_resume_text', window.currentGeneratedResumeText);
+    localStorage.setItem('northstar_latest_resume_data', JSON.stringify(window.currentGeneratedResumeData));
+  } catch(e) { /* storage quota */ }
+
+  // --- Stop loading state ---
+  rbStopGenerating();
+
+  // ATS uses the exact latest validated NorthStar AI output.
+  const atsArea = document.getElementById('ats-plain-text-area');
+  if (atsArea) {
+    atsArea.value = window.currentGeneratedResumeText;
+  }
+
+  // Switch only AFTER the newest resume has been parsed and rendered.
+  switchView('preview');
+
+  // Keep ATS synchronized with canonical state.
+  generatePlainText();
+
+  if (window.showNotification) showNotification('Your resume is ready.', 'success');
+}
+
+function rbApplyResumeFailure(err) {
+  console.error('[NorthStar] Generation error:', err);
+
+  // --- Stop loading, return to wizard ---
+  const wizardContainer = document.getElementById('view-wizard-container');
+  rbStopGenerating();
+  if (wizardContainer) wizardContainer.classList.remove('hidden');
+  rbSetActionsVisible(true);
+
+  const errorMsg = (err && err.message) || 'Resume generation failed.';
+  console.error('[NorthStar] FINAL GENERATION FAILURE:', errorMsg);
+  // Show a plain message on the page (showNotification is intentionally silent)
+  rbShowError(/too long/i.test(errorMsg)
+    ? 'This took too long. Your answers are still here, so please try again.'
+    : 'We couldn’t write your resume just now. Your answers are still here, so please try again in a minute.');
+  const mainErr = document.querySelector('main');
+  if (mainErr) mainErr.scrollTop = 0;
+  if (window.showNotification) showNotification(`Error: ${errorMsg}`, 'error');
+}
+
+// Put the person's answers back in the form (after coming back mid-generation)
+function rbRestoreAnswers(confirmed) {
+  if (!confirmed) return;
+  const set = (id, v) => { const el = document.getElementById(id); if (el && v && !el.value) el.value = v; };
+  set('input-name', confirmed.name);
+  set('input-phone', confirmed.phone);
+  set('input-location', confirmed.location);
+  set('input-contact', confirmed.alternate_contact);
+  set('input-informal-notes', (confirmed.tasks || []).join('\n'));
+  set('input-education', (confirmed.education || []).join('\n'));
+
+  // Chips: what was picked (skills + certificates both live on the skill chips)
+  const pick = (selector, values) => {
+    const wanted = new Set((values || []).map(v => String(v).trim().toLowerCase()));
+    if (!wanted.size) return;
+    document.querySelectorAll(selector).forEach(btn => {
+      const val = String(btn.dataset.val || btn.innerText || '').trim().toLowerCase();
+      if (wanted.has(val)) { btn.classList.add('active-chip'); btn.setAttribute('aria-pressed', 'true'); }
+    });
+  };
+  const certs = Array.isArray(confirmed.certifications) ? confirmed.certifications : [];
+  pick('.chip-btn', confirmed.experience_categories);
+  pick('.skill-chip', [...(confirmed.skills || []), ...certs, ...((confirmed.confirmed_numbers || []).includes('50+') ? ['Heavy Lifting 50+ lbs'] : [])]);
+  pick('.role-chip', confirmed.target_jobs);
+
+  // Typed certificates are the ones that aren't a chip
+  const chipCerts = new Set(Array.from(document.querySelectorAll('.skill-chip')).map(b => String(b.dataset.val || '').trim().toLowerCase()));
+  const custom = certs.filter(c => !chipCerts.has(String(c).trim().toLowerCase()));
+  set('input-custom-certifications', custom.join('\n'));
+}
+
+// ============================================================
+// SPA Re-init: Restore latest generated resume if it exists
+// This runs every time the SPA router evals this script after
+// swapping the app-frame innerHTML with fresh static HTML.
+// ============================================================
+function resumeBuilderInit() {
+  initChipToggles();
+  rbGoToStep(1, false);
+  rbSetActionsVisible(true);
+
+  // Start the name field with the signed-in person's name (they can change it)
+  try {
+    const nameInput = document.getElementById('input-name');
+    const session = typeof getSession === 'function' ? getSession() : null;
+    const fullName = session && !session.isGuest ? (session.full_name || '') : '';
+    if (nameInput && !nameInput.value && fullName) nameInput.value = fullName;
+  } catch (e) { /* no session */ }
+
+  // Enter on a text field moves to the next question
+  document.querySelectorAll('#view-wizard-container input.ns-input').forEach(inp => {
+    if (inp.dataset.rbEnter) return;
+    inp.dataset.rbEnter = '1';
+    inp.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); rbNext(); }
+    });
+  });
+  document.getElementById('input-name')?.addEventListener('input', () => {
+    if (document.getElementById('input-name').value.trim()) rbValidateName();
+  });
+
+  // If a resume was generated in this browser session, restore it.
+  // This prevents the SPA router's innerHTML swap from reverting to
+  // the static sample defaults.
+  let text = window.currentGeneratedResumeText;
+  let data = window.currentGeneratedResumeData;
+
+  // If window state was cleared (e.g. hard reload), try localStorage fallback
+  if (!text) {
+    try {
+      text = localStorage.getItem('northstar_latest_resume_text') || '';
+      const raw = localStorage.getItem('northstar_latest_resume_data');
+      data = raw ? JSON.parse(raw) : null;
+    } catch(e) { text = ''; data = null; }
+  }
+
+  if (text && data) {
+    // Re-hydrate canonical state
+    window.currentGeneratedResumeText = text;
+    window.currentGeneratedResumeData = data;
+    // Restore the preview from saved state (overwrites static HTML defaults)
+    populateResumeData(data);
+    console.log('[NorthStar] Restored previous generated resume on SPA init.');
+  }
+
+  // A resume started before leaving this page: keep waiting for it, or show it if it finished
+  const pendingJob = window.nsResumeJob ? window.nsResumeJob.get() : null;
+  if (pendingJob) {
+    rbRestoreAnswers(pendingJob.confirmed);
+    if (pendingJob.status === 'running') {
+      rbShowGenerating();
+      rbWatchResumeJob();
+    } else {
+      rbHandleFinishedJob(pendingJob);
+    }
+  }
+}
+
+// ============================================================
+// Expose all functions globally so SPA router eval + inline
+// onclick handlers can always find them
+// ============================================================
+window.generateResume = generateResume;
+window.switchView = switchView;
+window.copyCleanText = copyCleanText;
+window.exportToPDF = exportToPDF;
+window.initChipToggles = initChipToggles;
+window.populateResumeData = populateResumeData;
+window.parseValidatedResume = parseValidatedResume;
+window.handleResumePhotoUpload = handleResumePhotoUpload;
+window.removeResumePhoto = removeResumePhoto;
+window.rbNext = rbNext;
+window.rbBack = rbBack;
+window.rbGoToStep = rbGoToStep;
+
+// Run init (works both on first page load and after SPA eval)
+resumeBuilderInit();
+</script>
+</body>
+</html>

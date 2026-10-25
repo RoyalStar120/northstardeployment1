@@ -1449,12 +1449,16 @@ app.post('/api/deliveries/:id/status', async (req, res) => {
     res.status(500).json({ error: 'Failed to update delivery status.' });
   }
 });
-// --- Companion chat (NorthStar V5 model, with a Gemini backup) ---
+// --- Companion chat (NorthStar V5 model) ---
 //
-// Order: Gemini answers first (about 1-2 s, grounded in the verified places and jobs
-// below). If Gemini is unavailable or out of free quota, the NorthStar V5 model
-// (remote NORTHSTAR_AI_URL, or the local Python script) answers instead, so Companion
-// always replies. Set COMPANION_PROVIDER=northstar to ask the NorthStar model first.
+// When COMPANION_PROVIDER=northstar (set in .env): NorthStar V5 is the ONLY provider.
+// No Gemini fallback is attempted. If V5 fails, an error is shown and logged.
+// When COMPANION_PROVIDER is unset or anything else: Gemini answers first (fast, ~1–2 s),
+// and NorthStar V5 is the fallback. Set COMPANION_PROVIDER=northstar to use V5 only.
+//
+// COMPANION_REMOTE_TIMEOUT_MS controls how long to wait for V5 via HTTP
+// (default 120 s in northstar-only mode, 45 s when used as gemini fallback).
+// Override with env var COMPANION_REMOTE_TIMEOUT_MS.
 
 // Verified places (same list and ids as the Map) used to ground place questions
 let VERIFIED_PLACES = [];
@@ -1563,7 +1567,10 @@ function detectPlaceCategory(lower) {
   return null;
 }
 
-const COMPANION_REMOTE_TIMEOUT_MS = Number(process.env.COMPANION_REMOTE_TIMEOUT_MS) || 45000;
+const isNorthstarOnly = (process.env.COMPANION_PROVIDER || '').toLowerCase() === 'northstar';
+// Northstar-only mode needs more time (model loads once but inference can take 30–90 s).
+// Gemini-fallback mode uses the shorter default because it's a backup, not primary.
+const COMPANION_REMOTE_TIMEOUT_MS = Number(process.env.COMPANION_REMOTE_TIMEOUT_MS) || (isNorthstarOnly ? 120000 : 45000);
 const COMPANION_GEMINI_MODELS = (process.env.GEMINI_CHAT_MODELS ||
   'gemini-3.5-flash-lite,gemini-flash-lite-latest,gemini-3.5-flash,gemini-flash-latest')
   .split(',').map(s => s.trim()).filter(Boolean);
@@ -1916,10 +1923,17 @@ app.post('/api/chat', async (req, res) => {
     };
 
     const northstar = () => (process.env.NORTHSTAR_AI_URL ? askNorthstarRemote(chatPayload) : askNorthstarLocal(chatPayload));
-    // Voice waits on the answer before it can speak, so voice asks the fastest model first
-    const providers = (process.env.COMPANION_PROVIDER || '').toLowerCase() === 'northstar' && voice !== true
-      ? [['northstar', northstar], ['gemini', () => askGemini(chatPayload)]]
-      : [['gemini', () => askGemini(chatPayload)], ['northstar', northstar]];
+    // Northstar-only mode: never fall through to Gemini so we don't return unrelated output.
+    // Voice always goes to the fastest model first regardless of COMPANION_PROVIDER.
+    let providers;
+    if (isNorthstarOnly && voice !== true) {
+      providers = [['northstar', northstar]];
+    } else if (voice === true) {
+      // Voice latency matters: gemini is ~1-2s vs V5 ~30-90s
+      providers = [['gemini', () => askGemini(chatPayload)], ['northstar', northstar]];
+    } else {
+      providers = [['gemini', () => askGemini(chatPayload)], ['northstar', northstar]];
+    }
 
     let result = null;
     for (const [name, ask] of providers) {
@@ -1929,7 +1943,12 @@ app.post('/api/chat', async (req, res) => {
         console.log(`✅ [Companion] answered by ${result.mode} in ${((Date.now() - started) / 1000).toFixed(1)}s`);
         break;
       } catch (err) {
-        console.warn(`⚠️ [Companion] ${name} unavailable after ${((Date.now() - started) / 1000).toFixed(1)}s: ${err.message}`);
+        if (isNorthstarOnly) {
+          // In northstar-only mode, log the real error and surface it to the user
+          console.error(`❌ [Companion] NorthStar V5 failed after ${((Date.now() - started) / 1000).toFixed(1)}s: ${err.message}`);
+        } else {
+          console.warn(`⚠️ [Companion] ${name} unavailable after ${((Date.now() - started) / 1000).toFixed(1)}s: ${err.message}`);
+        }
       }
     }
 

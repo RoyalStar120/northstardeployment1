@@ -1115,7 +1115,7 @@ window.openSettingsModal = function () {
           <label class="ns-row cursor-pointer" for="settings-ai-consent">
             <span class="ns-row__body">
               <span class="ns-row__title block">Companion AI</span>
-              <span class="ns-row__sub block">Sends your chat to Google Gemini and your voice to ElevenLabs. Off turns Companion off.</span>
+              <span class="ns-row__sub block">Sends your chat to NorthStar's AI model (and your voice to ElevenLabs). Off turns Companion off.</span>
             </span>
             <input type="checkbox" id="settings-ai-consent" class="ns-switch" onchange="nsSetAiConsent(this.checked)">
           </label>
