@@ -74,6 +74,84 @@
         ],
         "createdAt": "2026-10-03T03:31:50.137Z",
         "reason": "Claude: no pulsing dot in this page's markup; the match is the shared .typing-dot Companion typing indicator (css/app.css), animated only while a real reply is in flight, same exception already recorded for companion/seeker-dashboard/progress"
+      },
+      {
+        "rule": "overused-font",
+        "value": "arial",
+        "createdAt": "2026-10-14T06:28:22.202Z",
+        "reason": "Claude: Arial is intentional on the mock 'old way' paper flyer in Zipsite/tools/northstar/make-assets.js, depicting a dated generic flyer; the page's own type is Northstar's brand font Plus Jakarta Sans (js/tailwind-config.js)"
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          "resource-map.html"
+        ],
+        "createdAt": "2026-10-25T03:57:52.964Z",
+        "reason": "Claude triage: only hits were the full-screen app-frame shell (bottom nav flush to screen edge by design) and fixed-size ns-tile icon tiles with a flex-centred glyph"
+      },
+      {
+        "rule": "clipped-overflow-container",
+        "value": "*",
+        "files": [
+          "resource-map.html"
+        ],
+        "createdAt": "2026-10-25T03:57:53.104Z",
+        "reason": "Claude triage: main.rm-main is the full-screen map viewport; its positioned layers (search, zoom, place sheet) are meant to stay inside it"
+      },
+      {
+        "rule": "nested-cards",
+        "value": "*",
+        "files": [
+          "resource-map.html"
+        ],
+        "createdAt": "2026-10-25T03:57:53.243Z",
+        "reason": "Claude triage: .rm-zoom floats above #bottom-drawer-sheet (bottom: calc(100% + 16px)); it sits in the sheet's DOM only so it moves with the sheet, not visually nested"
+      },
+      {
+        "rule": "pulsing-dot",
+        "value": "*",
+        "files": [
+          "resource-map.html"
+        ],
+        "createdAt": "2026-10-25T03:57:53.384Z",
+        "reason": "Claude triage: .typing-dot shows only while a Companion reply is in flight (live state), labelled role=status with 'Still thinking' notes, stopped under prefers-reduced-motion"
+      },
+      {
+        "rule": "gray-on-color",
+        "value": "*",
+        "files": [
+          "js/auth.js"
+        ],
+        "createdAt": "2026-10-25T05:37:56.764Z",
+        "reason": "Claude triage: the flagged class strings style #tab-login/#tab-signup, which no live page contains (legacy auth path superseded by index.html); unreachable UI"
+      },
+      {
+        "rule": "pulsing-dot",
+        "value": "*",
+        "files": [
+          "privacy.html"
+        ],
+        "createdAt": "2026-10-25T05:53:19.145Z",
+        "reason": "Claude triage: privacy.html has no dot element; the hit comes from the shared .typing-dot rule in css/app.css (Companion typing indicator, already triaged as a live-state exception)"
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          "index.html"
+        ],
+        "createdAt": "2026-10-25T06:10:36.653Z",
+        "reason": "Claude triage: only hit is the full-screen app-frame shell; its children sit flush on the screen edges by design (same as resource-map.html)"
+      },
+      {
+        "rule": "pulsing-dot",
+        "value": "*",
+        "files": [
+          "index.html"
+        ],
+        "createdAt": "2026-10-25T06:10:36.782Z",
+        "reason": "Claude triage: hit comes from the shared .typing-dot rule in css/app.css (Companion typing indicator shown only while a reply is in flight, role=status, stopped by prefers-reduced-motion)"
       }
     ]
   }

@@ -258,7 +258,8 @@ app.get('/api/config', (req, res) => {
     supabaseUrl: process.env.SUPABASE_URL || '',
     supabaseAnonKey: process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY || '',
     vapidPublicKey: process.env.VAPID_PUBLIC_KEY || '',
-    googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY || ''
+    googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY || '',
+    supportEmail: process.env.SUPPORT_EMAIL || ''
   });
 });
 
@@ -431,6 +432,10 @@ app.get('/api/chat/jobs', (req, res) => {
 app.get('/api/jobs', async (req, res) => {
   const userId = req.query.userId || req.query.user_id;
   const isVolunteer = req.query.role === 'volunteer';
+  const viewerId = tokenUserId(req);
+  // Others see an opaque poster key (for blocking), never the author's account id
+  const shape = (j) => ({ ...j, poster_key: posterKey(j.authorId), authorId: viewerId && viewerId === j.authorId ? j.authorId : undefined });
+  const visible = (j) => !isHiddenContent('job', j.id);
 
   if (supabase) {
     try {
@@ -456,7 +461,7 @@ app.get('/api/jobs', async (req, res) => {
           authorId: j.author_id,
           postedAt: j.created_at
         }));
-        return res.json({ success: true, jobs: formattedJobs });
+        return res.json({ success: true, jobs: formattedJobs.filter(visible).map(shape) });
       }
     } catch (err) {
       console.warn('Supabase fetch jobs error, falling back to memory:', err.message);
@@ -472,7 +477,7 @@ app.get('/api/jobs', async (req, res) => {
     }
   }
 
-  res.json({ success: true, jobs: filteredJobs });
+  res.json({ success: true, jobs: filteredJobs.filter(visible).map(shape) });
 });
 
 // API Endpoint: Post a new job opportunity (Helper Funnel) with Supabase persistence
@@ -510,11 +515,20 @@ async function runResumeGeneration(confirmed) {
         if (fetchErr.name === 'AbortError') {
           return { status: 504, body: { success: false, error: 'NorthStar AI took too long to respond. Please try again.' } };
         }
-        throw fetchErr;
+        // DNS failure, refused connection, dead tunnel: the AI service is offline
+        console.error('Resume AI service unreachable:', fetchErr.cause?.code || fetchErr.message);
+        return { status: 503, body: { success: false, error: 'The resume writer is offline right now. Your answers are kept, so please try again later.' } };
       }
       clearTimeout(resumeTimeout);
 
-      const result = await aiResponse.json();
+      let result;
+      try {
+        result = await aiResponse.json();
+      } catch (parseErr) {
+        // Tunnels answer with an HTML error page when the AI app behind them is down
+        console.error(`Resume AI service returned HTTP ${aiResponse.status} without JSON`);
+        return { status: 503, body: { success: false, error: 'The resume writer is offline right now. Your answers are kept, so please try again later.' } };
+      }
 
       if (!result.success) {
         return {
@@ -638,6 +652,9 @@ app.post('/api/jobs', async (req, res) => {
     const { title, company, location, type, pay, requirements, description, contact } = req.body || {};
     if (!title || !contact) {
       return res.status(400).json({ error: 'Title and contact details are required.' });
+    }
+    if (hasObjectionable(title, company, location, type, pay, requirements, description, contact)) {
+      return res.status(400).json({ error: 'Please remove offensive words and try again.' });
     }
     // The author is whoever the session token proves, never a name sent in the body
     const authorId = tokenUserId(req) || 'anonymous_volunteer';
@@ -846,6 +863,110 @@ function requireUser(req, res) {
   return data.id;
 }
 
+// ---- Safety for posts people share with each other (App Review Guideline 1.2) ----------------
+// Jobs and pickup requests are written by volunteers and shown to others, so posts are filtered,
+// anyone signed in can report one, three different reporters hide it until a moderator looks,
+// and each poster has an opaque key that people can block.
+const BLOCKED_TERMS = /\b(f+u+c+k+\w*|sh+i+t+\w*|cunts?|bitch\w*|whores?|sluts?|porn\w*|nudes?|n+i+g+g+(a|er)s?|fag(got)?s?|retards?|kys)\b/i;
+function hasObjectionable(...values) {
+  return values.flat().some(v => typeof v === 'string' && BLOCKED_TERMS.test(v));
+}
+const REPORTS_TO_HIDE = 3;
+const MODERATION_PATH = 'app/moderation.json';
+let moderation = { hidden: {}, reporters: {} };
+const contentKey = (kind, id) => `${kind}:${id}`;
+const isHiddenContent = (kind, id) => !!moderation.hidden[contentKey(kind, id)];
+async function loadModeration() {
+  try {
+    const saved = await readStorageJson(MODERATION_PATH);
+    if (saved && typeof saved === 'object') moderation = { hidden: saved.hidden || {}, reporters: saved.reporters || {} };
+  } catch (e) {}
+}
+async function saveModeration() {
+  try { await writeStorageJson(MODERATION_PATH, moderation); } catch (e) { console.warn('Moderation save notice:', e.message); }
+}
+// Stable, non-reversible id for blocking a poster without exposing their account id
+function posterKey(userId) {
+  return userId ? crypto.createHmac('sha256', TOKEN_SECRET).update('poster:' + userId).digest('hex').slice(0, 16) : null;
+}
+function moderatorAllowed(req) {
+  const key = process.env.MODERATION_KEY || '';
+  const given = String(req.headers['x-moderation-key'] || '');
+  return key.length >= 16 && given.length === key.length && crypto.timingSafeEqual(Buffer.from(given), Buffer.from(key));
+}
+
+app.post('/api/reports', async (req, res) => {
+  const reporter = tokenUserId(req);
+  if (!reporter) return res.status(401).json({ success: false, error: 'Please log in to report a post.' });
+  const kind = req.body && req.body.kind;
+  const id = String((req.body && req.body.id) || '').slice(0, 80);
+  const reason = String((req.body && req.body.reason) || '').replace(/\s+/g, ' ').trim().slice(0, 500);
+  if (!['job', 'delivery'].includes(kind) || !id) return res.status(400).json({ success: false, error: 'Choose a post to report.' });
+  const key = contentKey(kind, id);
+  const reporters = new Set(moderation.reporters[key] || []);
+  reporters.add(reporter);
+  moderation.reporters[key] = [...reporters];
+  if (reporters.size >= REPORTS_TO_HIDE) moderation.hidden[key] = { at: new Date().toISOString(), by: 'reports' };
+  const record = { kind, id, reason, reporter, createdAt: new Date().toISOString() };
+  console.log(`🚩 Report on ${key} (${reporters.size} reporter${reporters.size === 1 ? '' : 's'})`);
+  try {
+    await writeStorageJson(`reports/${Date.now()}-${crypto.randomBytes(4).toString('hex')}.json`, record);
+  } catch (e) {
+    console.warn('Report save notice:', e.message);
+  }
+  await saveModeration();
+  res.json({ success: true, hidden: !!moderation.hidden[key] });
+});
+
+// Moderators (MODERATION_KEY) review reports and hide or restore posts
+app.get('/api/moderation', async (req, res) => {
+  if (!moderatorAllowed(req)) return res.status(403).json({ success: false });
+  let reports = [];
+  try {
+    const { data } = await supabase.storage.from(USER_BUCKET).list('reports', { limit: 200, sortBy: { column: 'name', order: 'desc' } });
+    reports = await Promise.all((data || []).slice(0, 100).map(f => readStorageJson(`reports/${f.name}`)));
+  } catch (e) {}
+  res.set('Cache-Control', 'no-store');
+  res.json({ success: true, hidden: moderation.hidden, reports: reports.filter(Boolean) });
+});
+app.post('/api/moderation', async (req, res) => {
+  if (!moderatorAllowed(req)) return res.status(403).json({ success: false });
+  const { kind, id, hidden } = req.body || {};
+  if (!['job', 'delivery'].includes(kind) || !id) return res.status(400).json({ success: false });
+  const key = contentKey(kind, String(id));
+  if (hidden) moderation.hidden[key] = { at: new Date().toISOString(), by: 'moderator' };
+  else { delete moderation.hidden[key]; delete moderation.reporters[key]; }
+  await saveModeration();
+  res.json({ success: true });
+});
+
+// ---- Account deletion (App Review Guideline 5.1.1(v)) ----------------------------------------
+// Removes the account, its saved app data and the posts it made. Pickups other people are
+// already handling are kept but no longer linked to the deleted account.
+app.delete('/api/account', async (req, res) => {
+  const userId = tokenUserId(req);
+  if (!userId) return res.status(401).json({ success: false, error: 'Please log in again.' });
+  if (!supabase) return res.status(503).json({ success: false, error: 'Accounts are unavailable right now. Try again soon.' });
+  try {
+    await supabase.from('jobs').delete().eq('author_id', userId);
+    await supabase.from('deliveries').delete().eq('donor_id', userId).eq('status', 'pending_driver');
+    await supabase.from('deliveries').update({ donor_id: null, contactNotes: null }).eq('donor_id', userId);
+    await supabase.from('deliveries').update({ driver_id: null, driverName: null, status: 'pending_driver' })
+      .eq('driver_id', userId).in('status', ['driver_assigned', 'in_transit']);
+    await supabase.from('deliveries').update({ driver_id: null, driverName: null }).eq('driver_id', userId);
+    if (await ensureUserBucket()) await supabase.storage.from(USER_BUCKET).remove([`users/${userId}.json`]);
+    const { error } = await supabase.from('profiles').delete().eq('id', userId);
+    if (error) throw error;
+    for (let i = inMemoryJobs.length - 1; i >= 0; i--) if (inMemoryJobs[i].authorId === userId) inMemoryJobs.splice(i, 1);
+    activeDeliveries = activeDeliveries.filter(d => !(d.donor_id === userId && d.status === 'pending_driver'));
+    console.log('🗑️  Account deleted:', userId);
+    res.json({ success: true });
+  } catch (err) {
+    console.warn('Account deletion error:', err.message);
+    res.status(500).json({ success: false, error: 'Couldn’t delete your account right now. Please try again.' });
+  }
+});
+
 function cleanUsername(value) {
   return String(value || '').replace(/\s+/g, ' ').trim().slice(0, 60);
 }
@@ -883,11 +1004,56 @@ app.post('/api/auth/signup', async (req, res) => {
   }
 });
 
+// Brute-force protection. Passwords can be as short as 4 characters and older accounts can be
+// claimed with their id, so failed guesses are capped per username and per IP address.
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_MAX_FAILS_PER_NAME = 8;
+const LOGIN_MAX_FAILS_PER_IP = 50;
+const loginFailures = new Map(); // key -> { count, resetAt }
+
+function isLoopback(ip) {
+  return ip === '::1' || ip === '127.0.0.1' || ip === '::ffff:127.0.0.1';
+}
+function loginKeys(req, username) {
+  const keys = [{ key: 'name:' + username.toLowerCase(), max: LOGIN_MAX_FAILS_PER_NAME }];
+  if (!isLoopback(req.ip)) keys.push({ key: 'ip:' + req.ip, max: LOGIN_MAX_FAILS_PER_IP });
+  return keys;
+}
+function loginBlocked(req, username) {
+  const now = Date.now();
+  return loginKeys(req, username).some(({ key, max }) => {
+    const entry = loginFailures.get(key);
+    if (entry && entry.resetAt <= now) { loginFailures.delete(key); return false; }
+    return !!entry && entry.count >= max;
+  });
+}
+function recordLoginFailure(req, username) {
+  const now = Date.now();
+  if (loginFailures.size > 10000) {
+    for (const [k, v] of loginFailures) if (v.resetAt <= now) loginFailures.delete(k);
+  }
+  for (const { key } of loginKeys(req, username)) {
+    const entry = loginFailures.get(key);
+    if (!entry || entry.resetAt <= now) loginFailures.set(key, { count: 1, resetAt: now + LOGIN_WINDOW_MS });
+    else entry.count++;
+  }
+}
+
 app.post('/api/auth/login', async (req, res) => {
   if (!supabase) return res.status(503).json({ success: false, error: 'Accounts are unavailable right now. Try again soon.' });
   const username = cleanUsername(req.body && req.body.username);
   const password = String((req.body && req.body.password) || '');
   if (!username || !password) return res.status(400).json({ success: false, error: 'Enter your username and password.' });
+  if (loginBlocked(req, username)) {
+    return res.status(429).json({ success: false, error: 'Too many tries. Wait 15 minutes, then try again.' });
+  }
+  // Any response other than a successful login counts as a failed guess
+  const origJson = res.json.bind(res);
+  res.json = (body) => {
+    if (body && body.success) loginFailures.delete('name:' + username.toLowerCase());
+    else if (res.statusCode === 401 || res.statusCode === 404 || res.statusCode === 409) recordLoginFailure(req, username);
+    return origJson(body);
+  };
   try {
     const matches = await findProfilesByUsername(username);
     if (!matches.length) return res.status(404).json({ success: false, error: 'No account found with that username.' });
@@ -1039,7 +1205,18 @@ app.post('/api/create-checkout-session', async (req, res) => {
 });
 
 // API Endpoints: Food Delivery Pickup Queue & Uber Tracking
+// Pickup requests are listed for every volunteer, but the donor's account id and free-text
+// contact notes are only shown to that donor and to the volunteer who claimed the pickup.
+function redactDelivery(d, viewerId) {
+  if (!d) return d;
+  const involved = viewerId && (d.donor_id === viewerId || d.driver_id === viewerId);
+  const withKey = { ...d, poster_key: posterKey(d.donor_id) };
+  return involved ? withKey : { ...withKey, donor_id: null, contactNotes: null };
+}
+const visibleDelivery = (d) => d && !isHiddenContent('delivery', d.id);
+
 app.get('/api/deliveries', async (req, res) => {
+  const viewerId = tokenUserId(req);
   if (supabase) {
     try {
       const { data, error } = await supabase.from('deliveries').select('*').order('created_at', { ascending: false });
@@ -1062,16 +1239,17 @@ app.get('/api/deliveries', async (req, res) => {
           updated_at: d.updated_at
         }));
         activeDeliveries = formatted;
-        return res.json({ success: true, deliveries: formatted });
+        return res.json({ success: true, deliveries: formatted.filter(visibleDelivery).map(d => redactDelivery(d, viewerId)) });
       }
     } catch (err) {
       console.warn('Supabase fetch deliveries failed, falling back to memory', err);
     }
   }
-  res.json({ success: true, deliveries: activeDeliveries });
+  res.json({ success: true, deliveries: activeDeliveries.filter(visibleDelivery).map(d => redactDelivery(d, viewerId)) });
 });
 
 app.get('/api/deliveries/:id', async (req, res) => {
+  const viewerId = tokenUserId(req);
   if (supabase) {
     try {
       const { data, error } = await supabase.from('deliveries').select('*').eq('id', req.params.id).single();
@@ -1094,7 +1272,7 @@ app.get('/api/deliveries/:id', async (req, res) => {
           claimed_at: d.claimed_at,
           updated_at: d.updated_at
         };
-        return res.json({ success: true, delivery: formatted });
+        return res.json({ success: true, delivery: redactDelivery(formatted, viewerId) });
       }
     } catch (err) {
       console.warn('Supabase fetch delivery failed, falling back to memory', err);
@@ -1104,12 +1282,17 @@ app.get('/api/deliveries/:id', async (req, res) => {
   if (!delivery) {
     return res.status(404).json({ error: 'Delivery not found' });
   }
-  res.json({ success: true, delivery });
+  res.json({ success: true, delivery: redactDelivery(delivery, viewerId) });
 });
 
 app.post('/api/deliveries', async (req, res) => {
   try {
-    const { items, bags, donorArea, destination, timeWindow, contactNotes, donor_id } = req.body;
+    const { items, bags, donorArea, destination, timeWindow, contactNotes } = req.body;
+    if (hasObjectionable(items, donorArea, timeWindow, contactNotes)) {
+      return res.status(400).json({ success: false, error: 'Please remove offensive words and try again.' });
+    }
+    // The donor comes from the sign-in token (never the request body); guests donate anonymously
+    const donor_id = tokenUserId(req);
     const newDelivery = {
       id: `del-${Date.now()}`,
       items: Array.isArray(items) ? items : [items || 'Food Items'],
@@ -1282,6 +1465,90 @@ try {
   console.warn('Companion: could not load src/data/resources.json:', err.message);
 }
 
+// ---- Spoken job tips (Gigs headphones button), voiced by ElevenLabs --------------------
+// To keep credits low, the voice reads the tips for the kind of job only (no job titles), so
+// there are just a few recordings in total. Each is made once, then served from disk or from
+// Supabase Storage. Changing a tip in src/data/job-tips.json makes a new recording for it.
+const TTS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || 'EXAVITQu4vr4xnSDxMaL'; // "Sarah": warm, calm
+const TTS_MODEL = process.env.ELEVENLABS_MODEL || 'eleven_flash_v2_5';       // lowest credit cost
+const TTS_CACHE_DIR = path.join(__dirname, '.cache', 'tts');
+const ttsInFlight = new Map();
+let JOB_TIPS = { intro: '', payNote: '', kinds: [] };
+try {
+  JOB_TIPS = JSON.parse(fs.readFileSync(path.join(__dirname, 'src', 'data', 'job-tips.json'), 'utf8'));
+} catch (err) {
+  console.warn('Job tips: could not load src/data/job-tips.json:', err.message);
+}
+
+// The Gigs page reads the tip texts from here; src/ itself is not served.
+app.get('/api/job-tips', (req, res) => {
+  res.set('Cache-Control', 'public, max-age=3600');
+  res.json(JOB_TIPS);
+});
+
+function spokenTip(kind) {
+  const tip = (JOB_TIPS.kinds || []).find(k => k.id === kind);
+  return tip ? [JOB_TIPS.intro, tip.text, JOB_TIPS.payNote].filter(Boolean).join(' ') : null;
+}
+
+async function tipAudio(kind) {
+  const text = spokenTip(kind);
+  if (!text) return null;
+  const hash = crypto.createHash('sha1').update(`${TTS_VOICE_ID}|${TTS_MODEL}|${text}`).digest('hex').slice(0, 12);
+  const name = `${kind}-${hash}.mp3`;
+  const file = path.join(TTS_CACHE_DIR, name);
+  if (fs.existsSync(file)) return fs.readFileSync(file);
+  if (ttsInFlight.has(name)) return ttsInFlight.get(name);
+
+  const job = (async () => {
+    // Made before (on another server or before a restart)?
+    if (supabase && (await ensureUserBucket())) {
+      const { data } = await supabase.storage.from(USER_BUCKET).download(`tts/${name}`);
+      if (data) {
+        const buf = Buffer.from(await data.arrayBuffer());
+        fs.mkdirSync(TTS_CACHE_DIR, { recursive: true });
+        fs.writeFileSync(file, buf);
+        return buf;
+      }
+    }
+    if (!process.env.ELEVENLABS_API_KEY) throw new Error('ELEVENLABS_API_KEY not set');
+    const resp = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${TTS_VOICE_ID}?output_format=mp3_44100_64`, {
+      method: 'POST',
+      headers: { 'xi-api-key': process.env.ELEVENLABS_API_KEY, 'Content-Type': 'application/json', Accept: 'audio/mpeg' },
+      body: JSON.stringify({
+        text,
+        model_id: TTS_MODEL,
+        voice_settings: { stability: 0.5, similarity_boost: 0.75, style: 0, use_speaker_boost: true, speed: 0.95 }
+      })
+    });
+    if (!resp.ok) throw new Error(`ElevenLabs ${resp.status}: ${(await resp.text()).slice(0, 160)}`);
+    const buf = Buffer.from(await resp.arrayBuffer());
+    fs.mkdirSync(TTS_CACHE_DIR, { recursive: true });
+    fs.writeFileSync(file, buf);
+    if (supabase && (await ensureUserBucket())) {
+      supabase.storage.from(USER_BUCKET).upload(`tts/${name}`, buf, { contentType: 'audio/mpeg', upsert: true })
+        .then(({ error }) => { if (error) console.warn('Tip audio backup notice:', error.message); });
+    }
+    console.log(`🔊 Made tip audio "${kind}" (${text.length} characters)`);
+    return buf;
+  })().finally(() => ttsInFlight.delete(name));
+  ttsInFlight.set(name, job);
+  return job;
+}
+
+app.get('/api/tips-audio/:kind', async (req, res) => {
+  const kind = String(req.params.kind || '').toLowerCase();
+  if (!/^[a-z]{2,20}$/.test(kind) || !spokenTip(kind)) return res.status(404).end();
+  try {
+    const audio = await tipAudio(kind);
+    res.set({ 'Content-Type': 'audio/mpeg', 'Cache-Control': 'public, max-age=86400' });
+    res.send(audio);
+  } catch (err) {
+    console.warn('Tip audio unavailable:', err.message);
+    res.status(503).json({ success: false, error: 'Voice is unavailable right now.' });
+  }
+});
+
 app.get('/api/resources', (req, res) => {
   res.json({ success: true, resources: VERIFIED_PLACES });
 });
@@ -1302,7 +1569,7 @@ const COMPANION_GEMINI_MODELS = (process.env.GEMINI_CHAT_MODELS ||
   .split(',').map(s => s.trim()).filter(Boolean);
 
 async function askNorthstarRemote(chatPayload) {
-  const url = process.env.NORTHSTAR_AI_URL;
+  const url = (process.env.NORTHSTAR_AI_URL || '').replace(/\/+$/, '');
   if (!url || !process.env.NORTHSTAR_AI_KEY) throw new Error('remote NorthStar AI not configured');
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), COMPANION_REMOTE_TIMEOUT_MS);
@@ -1391,7 +1658,7 @@ async function askGemini(chatPayload) {
   contents.push({ role: 'user', parts: [{ text: userText }] });
 
   const body = JSON.stringify({
-    systemInstruction: { parts: [{ text: companionSystemPrompt(chatPayload.role) }] },
+    systemInstruction: { parts: [{ text: companionSystemPrompt(chatPayload.role) + (chatPayload.voice ? VOICE_STYLE_NOTE : '') }] },
     contents,
     generationConfig: { temperature: 0.4, maxOutputTokens: 500 }
   });
@@ -1421,9 +1688,164 @@ async function askGemini(chatPayload) {
   throw new Error(`all Gemini models failed (${failures.join(' | ')})`);
 }
 
+// ---- Voice Companion: talk to Companion, hear it answer (ElevenLabs) ---------------------
+// Listen: the phone's own speech recognition when it has one; otherwise a short recording is
+// sent here and ElevenLabs speech-to-text turns it into words. Think: /api/chat (voice: true asks
+// for 2-3 spoken sentences). Speak: ElevenLabs Flash, streamed so it starts talking right away.
+// Recordings are never stored. Each phone gets a fair-use limit so a loop can't drain credits.
+const VOICE_STYLE_NOTE = '\n\nVOICE MODE: your answer will be read aloud. Answer in 2 or 3 short, plain sentences (under 60 words). No lists, links, symbols, emoji or markdown. Say names, times and distances the way a person would say them.';
+const VOICE_MAX_CHARS = 400;
+const voiceSpeech = new Map(); // id -> { text, at }
+const voiceUse = new Map();    // ip -> { count, reset }
+
+function voiceAllowed(req) {
+  const ip = req.ip || 'x';
+  const now = Date.now();
+  const u = voiceUse.get(ip);
+  if (!u || now > u.reset) { voiceUse.set(ip, { count: 1, reset: now + 10 * 60 * 1000 }); return true; }
+  u.count += 1;
+  return u.count <= 80; // listens + replies per 10 minutes
+}
+
+// A reply as it should sound: no markdown, links or lists, cut at a sentence near the limit
+function toSpoken(text) {
+  let t = String(text || '')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/https?:\/\/\S+/g, '')
+    .replace(/[*_`#>]+/g, '')
+    .replace(/^\s*(?:[-•]|\d+[.)])\s+/gm, '')
+    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '')
+    .replace(/\s*\n+\s*/g, '. ')
+    .replace(/\.\s*\./g, '.')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  if (t.length > VOICE_MAX_CHARS) {
+    const cut = t.slice(0, VOICE_MAX_CHARS);
+    const end = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('? '), cut.lastIndexOf('! '));
+    t = end > 120 ? cut.slice(0, end + 1) : cut.replace(/\s+\S*$/, '') + '.';
+  }
+  return t;
+}
+
+// The phone app uploads its recording as one multipart file; take that file's bytes and type
+function voiceUploadFile(buf, contentType) {
+  const m = /boundary=(?:"([^"]+)"|([^;]+))/i.exec(contentType || '');
+  if (!m) return null;
+  const boundary = Buffer.from(`--${m[1] || m[2]}`);
+  const CRLF2 = Buffer.from([13, 10, 13, 10]);
+  let at = buf.indexOf(boundary);
+  while (at !== -1) {
+    const next = buf.indexOf(boundary, at + boundary.length);
+    if (next === -1) break;
+    const part = buf.subarray(at + boundary.length, next);
+    const headEnd = part.indexOf(CRLF2);
+    if (headEnd !== -1) {
+      const head = part.subarray(0, headEnd).toString('utf8');
+      if (/filename=/i.test(head)) {
+        const type = (/content-type:[ \t]*([^;\s]+)/i.exec(head) || [])[1] || 'audio/mp4';
+        return { audio: part.subarray(headEnd + 4, part.length - 2), type: type.trim() }; // drop trailing CRLF
+      }
+    }
+    at = next;
+  }
+  return null;
+}
+
+app.post('/api/voice/listen', express.raw({ type: ['audio/*', 'video/*', 'application/octet-stream', 'multipart/form-data'], limit: '12mb' }), async (req, res) => {
+  if (!aiConsentGiven(req)) return res.status(403).json(AI_CONSENT_REQUIRED);
+  if (!process.env.ELEVENLABS_API_KEY) return res.status(503).json({ success: false, error: 'Voice is not set up.' });
+  if (!voiceAllowed(req)) return res.status(429).json({ success: false, error: 'Voice limit reached. Please type for a few minutes.' });
+  let audio = req.body;
+  let type = String(req.headers['content-type'] || 'audio/webm').split(';')[0];
+  if (type === 'multipart/form-data' && Buffer.isBuffer(audio)) {
+    const file = voiceUploadFile(audio, req.headers['content-type']);
+    audio = file ? file.audio : null;
+    type = file ? file.type : type;
+  }
+  if (!Buffer.isBuffer(audio) || audio.length < 800) return res.json({ success: true, text: '' });
+  try {
+    const ext = type.includes('mp4') || type.includes('m4a') || type.includes('aac') ? 'm4a' : type.includes('3gp') ? '3gp' : type.includes('ogg') ? 'ogg' : type.includes('wav') ? 'wav' : 'webm';
+    const form = new FormData();
+    form.append('model_id', 'scribe_v1');
+    form.append('tag_audio_events', 'false');
+    form.append('file', new Blob([audio], { type }), `speech.${ext}`);
+    const r = await fetch('https://api.elevenlabs.io/v1/speech-to-text', {
+      method: 'POST',
+      headers: { 'xi-api-key': process.env.ELEVENLABS_API_KEY },
+      body: form
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(`ElevenLabs ${r.status}: ${JSON.stringify(data).slice(0, 160)}`);
+    const text = String(data.text || '').replace(/\([^)]*\)/g, '').replace(/\s+/g, ' ').trim();
+    res.json({ success: true, text });
+  } catch (err) {
+    console.warn('Voice listen failed:', err.message);
+    res.status(502).json({ success: false, error: 'Couldn’t hear that. Please try again.' });
+  }
+});
+
+// Step 1: hand over the text, get an id. Step 2: the audio element plays /api/voice/speak/<id>,
+// which streams from ElevenLabs as it is made (a plain GET, so playback starts immediately).
+app.post('/api/voice/speak', (req, res) => {
+  if (!aiConsentGiven(req)) return res.status(403).json(AI_CONSENT_REQUIRED);
+  if (!process.env.ELEVENLABS_API_KEY) return res.status(503).json({ success: false, error: 'Voice is not set up.' });
+  if (!voiceAllowed(req)) return res.status(429).json({ success: false, error: 'Voice limit reached.' });
+  const text = toSpoken(req.body && req.body.text);
+  if (!text) return res.status(400).json({ success: false, error: 'Nothing to say.' });
+  const now = Date.now();
+  for (const [k, v] of voiceSpeech) if (now - v.at > 5 * 60 * 1000) voiceSpeech.delete(k);
+  const id = crypto.randomBytes(9).toString('hex');
+  voiceSpeech.set(id, { text, at: now });
+  res.json({ success: true, id });
+});
+
+app.get('/api/voice/speak/:id', async (req, res) => {
+  const item = voiceSpeech.get(String(req.params.id || ''));
+  if (!item) return res.status(404).end();
+  const text = item.text;
+  // Short lines ("One moment") are made once and kept
+  const short = text.length <= 80;
+  const hash = crypto.createHash('sha1').update(`${TTS_VOICE_ID}|${TTS_MODEL}|${text}`).digest('hex').slice(0, 16);
+  const file = path.join(TTS_CACHE_DIR, `line-${hash}.mp3`);
+  res.set({ 'Content-Type': 'audio/mpeg', 'Cache-Control': 'no-store' });
+  if (short && fs.existsSync(file)) return res.send(fs.readFileSync(file));
+  try {
+    const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${TTS_VOICE_ID}/stream?output_format=mp3_44100_64`, {
+      method: 'POST',
+      headers: { 'xi-api-key': process.env.ELEVENLABS_API_KEY, 'Content-Type': 'application/json', Accept: 'audio/mpeg' },
+      body: JSON.stringify({
+        text,
+        model_id: TTS_MODEL,
+        voice_settings: { stability: 0.5, similarity_boost: 0.75, style: 0, use_speaker_boost: true, speed: 1.0 }
+      })
+    });
+    if (!r.ok || !r.body) throw new Error(`ElevenLabs ${r.status}: ${(await r.text()).slice(0, 160)}`);
+    const chunks = [];
+    for await (const chunk of r.body) {
+      res.write(chunk);
+      if (short) chunks.push(Buffer.from(chunk));
+    }
+    res.end();
+    if (short) {
+      fs.mkdirSync(TTS_CACHE_DIR, { recursive: true });
+      fs.writeFileSync(file, Buffer.concat(chunks));
+    }
+  } catch (err) {
+    console.warn('Voice speak failed:', err.message);
+    if (!res.headersSent) res.status(502).end(); else res.end();
+  }
+});
+
+// Companion sends messages to Google (Gemini) and voice to ElevenLabs only after the person agrees
+function aiConsentGiven(req) {
+  return (req.body && req.body.aiConsent === true) || String(req.headers['x-ns-ai-consent'] || '') === 'yes';
+}
+const AI_CONSENT_REQUIRED = { success: false, error: 'consent_required', message: 'Companion needs your OK before it sends anything to its AI services.' };
+
 app.post('/api/chat', async (req, res) => {
   try {
-    const { message, role, context, history } = req.body || {};
+    if (!aiConsentGiven(req)) return res.status(403).json(AI_CONSENT_REQUIRED);
+    const { message, role, context, history, voice } = req.body || {};
 
     if (!message || typeof message !== 'string' || !message.trim()) {
       return res.status(400).json({ success: false, error: 'Message is required.' });
@@ -1431,7 +1853,8 @@ app.post('/api/chat', async (req, res) => {
 
     const userRole = role === 'volunteer' ? 'volunteer' : 'seeker';
     const lowerMessage = message.toLowerCase();
-    console.log(`🤖 [Companion] ${userRole}: "${message.slice(0, 200)}"`);
+    // Message text is not written to server logs (privacy); only the role and length
+    console.log(`🤖 [Companion] ${userRole} message (${message.length} chars)`);
 
     // Current listings when the question (or the conversation just before it) is about jobs,
     // so follow-ups like "which one pays the most?" still have the listings
@@ -1488,11 +1911,13 @@ app.post('/api/chat', async (req, res) => {
       message: message.trim(),
       role: userRole,
       context: Object.keys(verifiedContext).length ? verifiedContext : null,
-      history: Array.isArray(history) ? history.slice(-10) : []
+      history: Array.isArray(history) ? history.slice(-10) : [],
+      voice: voice === true
     };
 
     const northstar = () => (process.env.NORTHSTAR_AI_URL ? askNorthstarRemote(chatPayload) : askNorthstarLocal(chatPayload));
-    const providers = (process.env.COMPANION_PROVIDER || '').toLowerCase() === 'northstar'
+    // Voice waits on the answer before it can speak, so voice asks the fastest model first
+    const providers = (process.env.COMPANION_PROVIDER || '').toLowerCase() === 'northstar' && voice !== true
       ? [['northstar', northstar], ['gemini', () => askGemini(chatPayload)]]
       : [['gemini', () => askGemini(chatPayload)], ['northstar', northstar]];
 
@@ -1513,6 +1938,7 @@ app.post('/api/chat', async (req, res) => {
     }
 
     const responsePayload = { success: true, reply: result.reply, mode: result.mode };
+    if (voice === true) responsePayload.spoken = toSpoken(result.reply);
     if (needsJobContext) {
       responsePayload.action = { type: 'navigate', destination: 'jobs', label: 'See jobs' };
     } else if (fallbackPlaces.length) {
@@ -1535,6 +1961,8 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   const actualPort = server.address().port;
   console.log(`✅ Northstar App Ready at http://localhost:${actualPort}`);
   console.log(`🚀 Server running on http://0.0.0.0:${actualPort} (${activeGigs.length} vetted gigs ready)`);
+
+  loadModeration();
 
   // Gigs: last real scrape from storage, then refresh it if it's old
   loadGigsCache().then(() => {

@@ -22,6 +22,8 @@ import { JobGuideScene as V3JobGuide } from "./v3/JobGuideScene";
 import { NorthstarLaunch3 } from "./v3/NorthstarLaunch3";
 import { RightNowScene as V3RightNow } from "./v3/RightNowScene";
 import { SayScene as V3Say, TurnScene as V3Turn } from "./v3/SayScenes";
+import { NorthstarLaunch4 } from "./v4/NorthstarLaunch4";
+import { VslEdit } from "./v5/VslEdit";
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -66,6 +68,11 @@ export const RemotionRoot: React.FC = () => {
         <Composition id="V3R-JobGuide" component={V3JobGuide} durationInFrames={276} fps={60} width={1080} height={1920} />
         <Composition id="V3R-Carousel" component={V3Carousel} durationInFrames={84} fps={60} width={1080} height={1920} />
       </Folder>
+      {/* Round 4: GET A JOB / NO TECH SKILLS REQUIRED / WIFI INCLUDED. 60 fps, timed in seconds. */}
+      <Composition id="NorthstarLaunch4" component={NorthstarLaunch4} durationInFrames={900} fps={60} width={1920} height={1080} />
+      <Composition id="NorthstarLaunch4Reel" component={NorthstarLaunch4} durationInFrames={900} fps={60} width={1080} height={1920} />
+      {/* Round 5: VSL-style edit of the iPhone talking-head clip (not Northstar). 60 fps, original audio. */}
+      <Composition id="VslEdit" component={VslEdit} durationInFrames={900} fps={60} width={1920} height={1080} />
     </>
   );
 };

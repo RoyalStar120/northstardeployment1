@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=0.9, viewport-fit=cover">
 <meta name="theme-color" content="#FFFFFF">
 <title>Companion · Northstar</title>
-<link rel="icon" href="favicon.png">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.png" type="image/png" sizes="512x512">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <script src="js/ns-boot.js"></script>
 <script src="js/user-data.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -33,21 +35,76 @@
         background: var(--sand);
         padding: 0 20px;
     }
-    .companion-form .ns-input:focus { background: #fff; }
+    .companion-form .ns-input:focus { background: var(--paper); }
     .companion-send {
         width: 46px; height: 46px; flex-shrink: 0;
         border-radius: 50%;
-        background: var(--ink); color: #fff;
+        background: var(--ink); color: var(--on-ink);
         display: flex; align-items: center; justify-content: center;
         transition: transform 0.16s var(--ease), opacity 0.2s ease;
     }
     .companion-send:active { transform: scale(0.94); }
+    .companion-mic {
+        width: 46px; height: 46px; flex-shrink: 0;
+        border-radius: 50%;
+        background: var(--amber); color: #111111;
+        display: flex; align-items: center; justify-content: center;
+        transition: transform 0.16s var(--ease);
+    }
+    .companion-mic:active { transform: scale(0.94); }
+
+    /* Voice panel: the big button pulses while listening, turns yellow while speaking */
+    .voice-panel {
+        position: relative;
+        display: flex; flex-direction: column; align-items: center;
+        padding: 14px 16px max(18px, env(safe-area-inset-bottom));
+        border-top: 1px solid var(--line);
+        background: var(--paper);
+    }
+    .voice-close {
+        align-self: flex-start;
+        display: inline-flex; align-items: center; gap: 6px;
+        height: 34px; padding: 0 12px; border-radius: 999px;
+        background: var(--sand); color: var(--ink-2);
+        font-size: 13px; font-weight: 600;
+    }
+    .voice-caption {
+        min-height: 44px; max-width: 320px; margin: 6px 0 14px;
+        text-align: center; font-size: 16px; line-height: 1.35; font-weight: 600; color: var(--ink);
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .voice-orb {
+        --lvl: 0;
+        position: relative;
+        width: 84px; height: 84px; border-radius: 50%;
+        display: grid; place-items: center;
+        background: var(--ink); color: var(--on-ink);
+        transition: background-color 0.25s ease, color 0.25s ease, transform 0.12s linear;
+        transform: scale(calc(1 + var(--lvl) * 0.12));
+    }
+    .voice-orb::before, .voice-orb::after {
+        content: ''; position: absolute; inset: 0; border-radius: 50%;
+        border: 2px solid var(--amber); opacity: 0; pointer-events: none;
+    }
+    .voice-orb[data-state='listening']::before { animation: voicePulse 1.6s ease-out infinite; }
+    .voice-orb[data-state='listening']::after { animation: voicePulse 1.6s ease-out 0.8s infinite; }
+    .voice-orb[data-state='thinking']::before { opacity: 1; border-style: dashed; border-color: var(--muted); inset: -8px; animation: voiceSpin 2.4s linear infinite; }
+    .voice-orb[data-state='speaking'] { background: var(--amber); color: #111111; }
+    .voice-orb[data-state='speaking']::before { animation: voiceGlow 1.2s ease-in-out infinite; border-width: 6px; border-color: color-mix(in srgb, var(--amber) 45%, transparent); }
+    .voice-orb[data-state='idle'] { background: var(--amber); color: #111111; }
+    .voice-hint { margin-top: 12px; font-size: 13px; font-weight: 500; color: var(--muted); }
+    @keyframes voicePulse { from { opacity: 0.9; transform: scale(1); } to { opacity: 0; transform: scale(1.7); } }
+    @keyframes voiceSpin { to { transform: rotate(360deg); } }
+    @keyframes voiceGlow { 0%, 100% { opacity: 0.25; transform: scale(1.06); } 50% { opacity: 0.9; transform: scale(1.18); } }
+    @media (prefers-reduced-motion: reduce) {
+        .voice-orb::before, .voice-orb::after { animation: none !important; }
+    }
     .companion-send:disabled { opacity: 0.35; }
     #chatbot-suggestion-chips { padding: 4px 16px 8px; }
     .companion-count {
         position: absolute; top: -2px; right: -2px;
         min-width: 18px; height: 18px; padding: 0 5px;
-        border-radius: 999px; background: var(--ink); color: #fff;
+        border-radius: 999px; background: var(--ink); color: var(--on-ink);
         font-size: 11px; font-weight: 700; line-height: 18px; text-align: center;
     }
     .companion-notice {
@@ -93,10 +150,22 @@
         <form id="chatbot-input-form" class="companion-form" onsubmit="handleAIChatSubmit(event)">
             <label for="chatbot-input-field" class="sr-only">Message Companion</label>
             <input type="text" id="chatbot-input-field" class="ns-input flex-1" placeholder="Ask Companion" autocomplete="off" enterkeyhint="send">
+            <button type="button" id="voice-btn" class="companion-mic" aria-label="Talk to Companion" title="Talk"></button>
             <button type="submit" id="chatbot-send-btn" class="companion-send" aria-label="Send">
                 <span class="material-symbols-outlined">arrow_upward</span>
             </button>
         </form>
+
+        <!-- Voice Companion (js/voice-companion.js): talk, hear the answer, it listens again -->
+        <div id="voice-panel" class="voice-panel hidden" data-state="idle" aria-live="polite">
+            <button type="button" id="voice-close" class="voice-close" aria-label="Back to typing">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h10M4 17h7"/></svg>
+                Type instead
+            </button>
+            <p id="voice-caption" class="voice-caption">Listening…</p>
+            <button type="button" id="voice-orb" class="voice-orb" data-state="idle" aria-label="Stop voice"></button>
+            <p id="voice-hint" class="voice-hint">Tap to stop</p>
+        </div>
     </div>
 
     <nav class="bottom-nav ns-nav" aria-label="Main"></nav>
@@ -126,5 +195,6 @@
 
 <script src="js/places.js"></script>
 <script src="js/northstar.js"></script>
+<script src="js/voice-companion.js"></script>
 </body>
 </html>

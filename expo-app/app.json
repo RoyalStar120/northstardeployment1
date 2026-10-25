@@ -5,10 +5,20 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "backgroundColor": "#ffffff",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "buildNumber": "1",
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": false,
+          "NSAllowsLocalNetworking": true
+        }
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -25,7 +35,31 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Northstar uses your location to show beds, meals and gigs near you."
+          "locationWhenInUsePermission": "Northstar uses your location to show beds, meals and gigs near you. You can also pick an area on the map instead.",
+          "locationAlwaysAndWhenInUsePermission": false,
+          "locationAlwaysPermission": false,
+          "motionUsagePermission": false
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Northstar records your voice only after you tap the microphone, so you can ask Companion questions out loud.",
+          "enableBackgroundPlayback": false
+        }
+      ],
+      "expo-asset",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#0D0E13",
+          "dark": {
+            "image": "./assets/splash-icon.png",
+            "backgroundColor": "#0D0E13"
+          }
         }
       ]
     ],

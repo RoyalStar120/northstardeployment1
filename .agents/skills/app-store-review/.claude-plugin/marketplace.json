@@ -1,0 +1,25 @@
+{
+  "name": "app-store-review-skill",
+  "owner": {
+    "name": "Elie Majorel",
+    "url": "https://github.com/ElxMaj"
+  },
+  "metadata": {
+    "description": "Evidence-based App Store and iOS 27 review with self-contained visual reports"
+  },
+  "plugins": [
+    {
+      "name": "app-store-review",
+      "source": "./",
+      "description": "Review iOS 27 engineering, design and store assets, audit submissions, recover from rejections, and evaluate Guideline 4.3 craft risks.",
+      "category": "development",
+      "tags": [
+        "ios",
+        "app-store",
+        "compliance",
+        "app-review",
+        "ios27"
+      ]
+    }
+  ]
+}

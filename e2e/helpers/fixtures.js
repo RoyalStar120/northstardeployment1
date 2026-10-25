@@ -95,6 +95,14 @@ export const test = base.extend({
 
 export { expect };
 
+// The home greeting follows the time of day: "Good morning, Alex" (or just "Good evening" for guests).
+export function greeting(name) {
+  const part = '(Good morning|Good afternoon|Good evening)';
+  if (!name) return new RegExp(`^${part}$`);
+  const first = String(name).split(/\s+/)[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`^${part}, ${first}$`);
+}
+
 // Assert there were no uncaught JS exceptions or 5xx responses from our server.
 export function expectHealthy(diag) {
   expect.soft(diag.pageErrors, 'uncaught page errors').toEqual([]);

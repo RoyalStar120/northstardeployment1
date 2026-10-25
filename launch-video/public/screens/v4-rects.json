@@ -1,0 +1,42 @@
+{
+  "wifiChip": {
+    "x": 174,
+    "y": 72,
+    "w": 86,
+    "h": 36
+  },
+  "drawerCount": "42",
+  "filters": {
+    "x": -303,
+    "y": 72,
+    "w": 90,
+    "h": 36
+  },
+  "offlineMode": {
+    "x": 285,
+    "y": 396,
+    "w": 128,
+    "h": 38
+  },
+  "download": {
+    "x": 33,
+    "y": 388,
+    "w": 367,
+    "h": 40
+  },
+  "offlineText": "Download a list of shelters, food and health care near Seattle, with a map. It opens on your phone with no signal.",
+  "downloadingText": "Saved",
+  "savedText": "Saved",
+  "companionInput": {
+    "x": 16,
+    "y": 814,
+    "w": 347,
+    "h": 46
+  },
+  "companionSend": {
+    "x": 371,
+    "y": 814,
+    "w": 46,
+    "h": 46
+  }
+}

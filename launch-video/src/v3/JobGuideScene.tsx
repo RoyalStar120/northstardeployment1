@@ -2,6 +2,7 @@ import React from "react";
 import { AbsoluteFill, Easing, interpolate, useVideoConfig } from "remotion";
 import { Phone, phoneHeight, Screen } from "../components";
 import { C, clamp, easeInOut, easeOut, fontFamily, useT } from "../theme";
+import { TouchDot } from "../v4/kit";
 import { Burst, GuideArrow, GuideRing, pressed, Ripple } from "./kit";
 
 // S6 ⭐ The step-by-step job guide, one continuous close-up take.
@@ -78,7 +79,7 @@ const Btn: React.FC<{ readonly label: string; readonly tone: "yellow" | "light" 
   </div>
 );
 
-const CardBody: React.FC<{ readonly i: number; readonly frame: number }> = ({ i, frame }) => {
+const CardBody: React.FC<{ readonly i: number; readonly frame: number; readonly stream?: boolean }> = ({ i, frame, stream = false }) => {
   const s = STEPS[i];
   const done = i === 3;
   return (
@@ -95,7 +96,16 @@ const CardBody: React.FC<{ readonly i: number; readonly frame: number }> = ({ i,
             <span style={{ fontSize: 14, fontWeight: 700, color: "#111" }}>Copy</span>
           </div>
           <div style={{ marginTop: 12, padding: 12, borderRadius: 14, background: "#FFF7D1", border: "1px solid #F2DC7A", fontSize: 14, lineHeight: "20px", color: "#3F3F3F" }}>
-            {MESSAGE}
+            {stream
+              ? MESSAGE.split(/(?<=\.) /).map((line, k) => {
+                  const t = interpolate(frame, [79 + k * 3, 84 + k * 3], [0, 1], { ...clamp, easing: ease });
+                  return (
+                    <span key={k} style={{ opacity: t, filter: `blur(${(1 - t) * 6}px)` }}>
+                      {line}{" "}
+                    </span>
+                  );
+                })
+              : MESSAGE}
           </div>
           <div style={{ display: "flex", gap: 12, marginTop: 14 }}>
             <Btn label="Open Gmail" tone="yellow" big style={{ scale: pressed(frame, 86) }} />
@@ -115,8 +125,14 @@ const CardBody: React.FC<{ readonly i: number; readonly frame: number }> = ({ i,
   );
 };
 
-export const JobGuideScene: React.FC = () => {
-  const frame = useT();
+// Round 4 options (all off by default, so round 3 is unchanged): `speed` retimes the take, `touch` adds the
+// gliding touch dot, `stream` writes the message in line by line.
+export const JobGuideScene: React.FC<{ readonly speed?: number; readonly touch?: boolean; readonly stream?: boolean }> = ({
+  speed = 1,
+  touch = false,
+  stream = false,
+}) => {
+  const frame = useT() * speed;
   const { width: W, height: H } = useVideoConfig();
   const { reel, PHONE_W, LEFT, TOP, fx, fy, zoom: Z } = layout(W, H);
 
@@ -252,7 +268,7 @@ export const JobGuideScene: React.FC = () => {
               >
                 {step >= 0 ? (
                   <div style={{ opacity: cardIn, translate: `0 ${(1 - cardIn) * 12}px` }}>
-                    <CardBody i={step} frame={frame} />
+                    <CardBody i={step} frame={frame} stream={stream} />
                   </div>
                 ) : null}
               </div>
@@ -292,6 +308,22 @@ export const JobGuideScene: React.FC = () => {
                 <div style={{ padding: "14px 18px", borderTop: "1px solid #E8E8E8", fontSize: 16, lineHeight: "24px", color: "#111" }}>{MESSAGE}</div>
               </div>
               <Ripple frame={frame} at={106} x={SEND.x} y={SEND.y} dark />
+              {touch ? (
+                // Times are guide units (30/s), so the dot runs on the same retimed clock as the take.
+                <TouchDot
+                  s={frame / 30}
+                  from={0.05}
+                  to={112 / 30}
+                  stops={[
+                    { t: 0, x: 250, y: 560 },
+                    { t: 7 / 30, x: VIEW_LISTING.x, y: VIEW_LISTING.y, tap: true },
+                    { t: 50 / 30, x: REPLY.x + REPLY.w / 2, y: REPLY.y + REPLY.h / 2, tap: true },
+                    { t: 72 / 30, x: EMAIL.x + EMAIL.w / 2, y: EMAIL.y + EMAIL.h / 2, tap: true },
+                    { t: 86 / 30, x: OPEN_GMAIL.x, y: OPEN_GMAIL.y, tap: true },
+                    { t: 106 / 30, x: SEND.x, y: SEND.y, tap: true },
+                  ]}
+                />
+              ) : null}
             </div>
           </div>
         </Phone>

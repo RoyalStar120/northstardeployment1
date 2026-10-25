@@ -1,5 +1,5 @@
 // Launch, onboarding, sign-up, sign-in, sign-out, session persistence and expiry.
-import { test, expect, expectHealthy, apiSignup, seedSession, uniqueName, recordCreatedUser } from '../helpers/fixtures.js';
+import { test, expect, expectHealthy, apiSignup, seedSession, uniqueName, recordCreatedUser, greeting } from '../helpers/fixtures.js';
 
 async function openOnboarding(page) {
   await page.addInitScript(() => {
@@ -34,7 +34,7 @@ test.describe('Launch and onboarding', () => {
     await openOnboarding(page);
     await page.getByRole('button', { name: /Explore without an account/ }).click();
     await expect(page).toHaveURL(/seeker-dashboard\.html/);
-    await expect(page.getByRole('heading', { name: 'Hi there' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: greeting() })).toBeVisible();
     await page.goto('/resume-builder.html');
     await expect(page.getByText('Create a free account to use this')).toBeVisible();
     expectHealthy(diagnostics);
@@ -80,7 +80,7 @@ test.describe('Accounts', () => {
     recordCreatedUser(body.user);
     expect(body.user).not.toHaveProperty('pass_hash');
     await expect(page).toHaveURL(/seeker-dashboard\.html/);
-    await expect(page.getByRole('heading', { name: `Hi, ${name}` })).toBeVisible();
+    await expect(page.getByRole('heading', { name: greeting(name) })).toBeVisible();
     expectHealthy(diagnostics);
   });
 
@@ -134,7 +134,7 @@ test.describe('Accounts', () => {
     await page.locator('#simple-login-submit-btn').click();
     await expect(page).toHaveURL(/seeker-dashboard\.html/);
     await page.reload();
-    await expect(page.getByRole('heading', { name: `Hi, ${acc.username}` })).toBeVisible();
+    await expect(page.getByRole('heading', { name: greeting(acc.username) })).toBeVisible();
 
     await page.goto('/progress.html');
     await page.getByRole('button', { name: /Sign out/ }).click();

@@ -1,118 +1,92 @@
-# Shotlist — Northstar launch film (round 3)
+# Shotlist — VSL-style edit of your clip (round 5)
 
-**Format:** 15.0 s · 16:9 · 1920×1080 · 30 fps (450 frames) · silent · Remotion
-**Style:** the grammar in [`style_guide.md`](style_guide.md) (same reference as round 1), applied to the full product brief.
-**Story:** *A bed tonight → a job tomorrow.* The **step-by-step job guide** is the hero: the longest take, about 4.6 s.
+**Format:** 15.0 s · 16:9 · 1920×1080 · **60 fps (900 frames)** · with the clip's own audio · Remotion
+**Footage:** `Downloads/20261001_054921000_iOS.MOV` (20.6 s, 1920×1080, 30 fps, talking head in a bedroom setup)
+**Style:** the grammar in [`style_guide.md`](style_guide.md): eased push-in on every sentence, reframed jump cuts, caps captions, neon keywords and glossy graphics acting out each phrase.
+**Not for Northstar.** All graphics are drawn from scratch (no logos or stickers from the reference).
+
+Transcript (local, `refs/clip/transcript.json`, word timestamps). Whisper heard "$10.50", but the iPhone filename puts this at about 10:50 PM, so it's almost certainly the time.
+
+> "Yeah, so 10:50 right now. I just finished — finished the video. I sent it to my phone, I'll just post it tomorrow morning, and probably right now what I'm gonna do is me and my partner run a DM setting offer just to get some cash to fund our Meta ad campaigns, and… Yeah, I'm just gonna send the daily dose of DMs for that, update the CRM, and I'll hop right into sales after that."
 
 ---
 
-## Northstar translation of the grammar
+## The 15 s cut (20.6 s → 15.0 s with jump cuts)
 
-| Reference grammar | Northstar version |
-|---|---|
-| Dusk gradient bookends | Night-navy `#1B273E` → amber `#FFD43B` dawn horizon, with the four-point star from `northstar-mark.svg` as the hero object |
-| White field / ink | `#FFFFFF` / `#111111` (`css/app.css`) |
-| Neo-grotesk Medium, tight tracking | **Plus Jakarta Sans 600**, −0.025em (the app's real font) |
-| Say → show loop | Each type card names the beat that follows it |
-| Pull-back reveal from a bubble or widget | From the yellow **"Right now"** card out to the full dashboard in the phone |
-| Sticker burst | **Our own glossy tiles**: Material Symbols (bed, restaurant, shower, work, star) on amber, navy and white chips. No third-party or stock objects |
-| Caption + curved carousel of widgets | A curved carousel of **real Northstar screens**, including the "Give help" side |
-| Accent = the product only | Amber shows up only where the app itself uses it (Right now card, pay label, guide arrow, ring, buttons) |
+| Cut | Source (s) | Words kept | Length |
+|---|---|---|---|
+| A | 0.74 – 1.98 | "so 10:50 right now." (drops "Yeah,") | 1.24 |
+| B | 2.08 – 2.62 + 3.14 – 3.88 | "I just finished · the video." (removes the stutter "finished finished") | 1.28 |
+| C | 4.36 – 6.50 | "I sent it to my phone, I'll just post it tomorrow morning" | 2.14 |
+| D | 7.72 – 13.18 | "what I'm gonna do is me and my partner run a DM setting offer just to get some cash to fund our Meta ad campaigns" | 5.46 |
+| E | 14.80 – 19.68 | "I'm just gonna send the daily dose of DMs for that, update the CRM, and I'll hop right into sales" | 4.88 |
+| | | **Total** | **15.00** |
 
-## Where every pixel comes from
-
-| Element | Source |
-|---|---|
-| Logo tile, star mark | `assets/brand/northstar-logo.png`, `assets/brand/northstar-mark.svg` |
-| Home, Right now card, Near you | Capture of `seeker-dashboard.html` (already in `launch-video/public/screens/dashboard.png`) |
-| Map, bottom panel, directions + route | New capture of `resource-map.html` after tapping Directions on Downtown Emergency Service Center. If live transit times come back, I'll use them; otherwise the brief's example `Leave at 5:10 PM · Bus 545` is shown as the departure chip |
-| Gig card | Capture of `opportunities.html` ("Get Paid to Lift", $25.00 / hr · Cash, No ID needed) |
-| **Job guide** | **Rebuilt in vector from `expo-app/JobGuide.js` + `guideScript.js`**: the exact arrow SVG path (`#FFD43B`, 4px `#111` stroke), the 4px amber ring with its pulse, the bottom card (tag pill, 26/800 title, 16 px `#555` detail, `#FFF7D1` message box, yellow 56 px "Open Gmail" button), the yellow "‹ Northstar" pill, and the step copy verbatim |
-| The job post under the guide | **A plain, unbranded post page** (title, pay, body text, `reply` button, `email` option). No Craigslist logo, name or styling |
-| Mail compose | **A neutral compose sheet** (To / Subject / message, Send button). No Gmail or Google branding. The guide button keeps its real label, "Open Gmail" |
-| Carousel screens | Captures of `index.html` (role: Find help / Give help), `companion.html`, `resume-builder.html`, `progress.html`, `helper-dashboard.html` ("Thanks for helping out today."), `donate.html` |
+Audio: each cut gets a 20 ms crossfade so the jump cuts don't click. Framing alternates on every cut (wide 1.00 ↔ punched 1.16) so the jumps read as intentional.
 
 ---
 
 ## Shots
 
-### S1 · Dawn open (0.00–1.50 · f0–45) · World A
-- Navy-to-amber gradient with a curved horizon. The glossy star rises off it.
-- Typewriter in white with caret, 13 characters per second: `help is closer|`
-- Crane up with the frame hazing lighter. **1.30–1.50:** luminance bloom to white.
+### A · Hook: "so 10:50 right now." (0.00–1.24)
+- Framing: **punched (1.16)**, then an eased push to 1.24 over the cut.
+- **"10:50"** flies in letter by letter as **neon cyan Black caps** (130 px) in the upper-left negative space, with a small "PM" beside it. A glossy cyan **clock icon** (drawn) pops at its right edge.
+- Caption: `SO 10:50 RIGHT NOW.`
 
-### S2 · Say (1.50–2.40 · f45–72) · World B
-- Ghost → ink reveal, centered, 84 px: `A bed tonight.`
-- 2% drift, then a hard white-to-white cut.
+### B · "I just finished the video." (1.24–2.52)
+- Jump cut → **wide (1.00)**, with a push to 1.10.
+- A glossy **play-button card** (cyan glass, rounded) pops beside the head, then a green **check** stamps onto it on "video".
+- Caption: `I JUST FINISHED THE VIDEO.`, with **FINISHED** in green.
 
-### S3 · Right now → pull back (2.40–4.40 · f72–132) · World C
-- **2.40:** tight crop (scale 1.6) on the real yellow **"Right now · Shelter open all night"** card.
-- **2.90–3.50:** pull back to 1.0. The light phone bezel resolves around the whole dashboard (`Hi, Sam`, filters, Near you).
-- **3.70:** **Get directions** shows its pressed state (darken + ring ripple, no hand), and the screen swaps to the map.
-- **4.00–4.40:** the camera begins sliding the phone left.
+### C · "I sent it to my phone… post it tomorrow morning" (2.52–4.66)
+- Jump cut → **punched (1.16)**, with a push to 1.24.
+- On "phone": a small glossy **phone icon** with a "1 new" notification dot pops at the upper right.
+- On "tomorrow morning": the phone icon is **pushed out** by a **badge pill** (deep blue gradient) that reads `POSTING TOMORROW AM`, with a drawn **sunrise icon** at its edge.
+- Caption phrases: `I SENT IT TO MY PHONE` → `I'LL POST IT TOMORROW MORNING`.
 
-### S4 · Directions (4.40–6.00 · f132–180) · World C
-- Real map screen. The bottom panel slides up; the place card shows `Verified` and `Open now`.
-- **4.80–5.60:** the route line **draws** across the map (stroke-dashoffset), bus segment then walk.
-- The departure chip pops in with a spring: `Leave at 5:10 PM · Bus 545`.
-- Caption at right of the phone, ghost → ink, 64 px: `Even by bus.`
+### D · The plan (4.66–10.12) · 5.46 s, two internal beats
+- Jump cut → **wide (1.00)**, with a slow eased push to 1.14 across the whole sentence plus a 1.5% pan.
+- **4.9 s, "what I'm gonna do is":** caption only (build anticipation).
+- **5.5 s, "me and my partner":** two small glass **name chips** float up beside the head: `ME` + `PARTNER`, linked by a thin glowing line.
+- **6.3 s, "DM setting offer":** the chips are **pushed out** by the hero badge: `DM SETTING OFFER`, with a drawn **chat-bubble icon** at its edge. **Emphasis punch** (+6%).
+- **7.6 s, "cash":** the neon keyword **CASH** flies in, in **green** (`#14FF75`).
+- **8.4 s, "fund our Meta ad campaigns":** a **green trend line draws** upward across the frame behind the head, and the neon word **ADS** lands at its peak. Counter beside it: `$0 → $$$` (symbolic, no invented numbers).
+- Caption phrases follow the speech: `WHAT I'M GONNA DO IS` → `ME AND MY PARTNER` → `RUN A DM SETTING OFFER` → `JUST TO GET SOME CASH` → `TO FUND OUR META AD CAMPAIGNS`.
 
-### S5 · Say, part 2 (6.00–7.00 · f180–210) · World B
-- `A bed tonight.` returns, then a **partial dissolve**: `A` stays, `bed tonight.` breaks into grain, and `job tomorrow.` writes on. `A` never moves.
+### Pattern break (10.12)
+- **Zoom-blur whip** (0.2 s) into cut E: radial blur through scale 1.14 → 1.30 → snap to the new framing.
 
-### S6 · The job guide ⭐ (7.00–11.60 · f210–348) · World C, close-up
-One continuous take. The camera stays in close-up (scale 1.3–1.5) on the phone, with no cuts.
-
-| Time | Picture | Guide card (verbatim app copy) |
-|---|---|---|
-| 7.00–7.50 | The real gig card **Get Paid to Lift** · `$25.00 / hr · Cash` (yellow pay label) · `No ID needed`. **View listing** gets its pressed state | — |
-| 7.50–7.80 | The listing opens **inside Northstar**: the yellow `‹ Northstar` pill top-left, the plain post below. The guide card rises from the bottom (0.32 s ease-out, matching the app's own `cardIn` timing) | tag **First** · **Tap "reply"** · *The yellow arrow shows you where.* |
-| 7.80–8.70 | The **yellow arrow bounces** (14 px, matching the app's `nsBounce`) above `reply`, and the **amber ring pulses** around it. Then pressed state | (same) |
-| 8.70–9.40 | A small option list appears. The arrow **glides** to `email` (eased, about 0.4 s), and the ring follows | tag **Next** · **Tap "email"** · *This shows their email address.* |
-| 9.40–10.30 | The camera eases down to the card | tag **Finally** · **Open Gmail and send it** · *Your message is already written. Send it to:* `[demo address]` · message box: *"Hi, I'm Sam. I saw your post for moving help. I've unloaded trucks and prepped meals, and I can start today. My phone is (206) 555-0142."* · big yellow **Open Gmail** button, pressed |
-| 10.30–11.00 | The neutral compose sheet slides up, **already filled**: To, Subject `Moving help`, and the same message. The **Send** button shows its pressed state with a touch ripple | — |
-| 11.00–11.60 | Back in the app: the card turns green-tagged | tag **Done** · **You applied!** · *Nice work. Keep an eye on your phone and email.* |
-
-- **11.00–11.60 energy spike:** Northstar's glossy icon tiles (bed, restaurant, shower, work, star) burst in around the frame edges, spring once, and fly out. The "You applied!" card stays clear at center.
-- Ends with a pull-back to the full phone.
-
-### S7 · Caption + carousel (11.60–13.00 · f348–390) · World C
-- Caption, ink, 52 px at 20% height: `For finding help — and giving it.`
-- Phone at center, bottom-cropped, showing the dashboard. A curved arc of real screen tiles pans behind it:
-  role choice (Find help / Give help) · Companion · Resume · Progress · **Volunteer Home ("Thanks for helping out today.")** · Donate.
-
-### S8 · Stars gather (13.00–13.60 · f390–408) · World A
-- Back to the dawn. Three stars settle into the app-icon layout, and the sky tightens into the icon tile on white.
-
-### S9 · Lockup (13.60–15.00 · f408–450) · World B
-- `Meet [logo tile] Northstar` → `Meet` falls away → tile + `Northstar` re-center.
-- `Help is closer than you think.` fades in below in `#737373`. Hold on the last frame.
+### E · The grind (10.12–15.00) · 4.88 s, three beats
+- Framing after the whip: **punched (1.16)**, with a push to 1.26 by the end.
+- **"daily dose of DMs":** three **DM bubbles** stack up beside the head, one after another (glass cards with blank message lines, no fake names or text), plus a counter chip `DMs ✓`.
+- **"update the CRM":** the bubbles are pushed out by a **glass checklist card**, `CRM`, with three rows ticking ✓ in sequence.
+- **"hop right into sales":** the neon caps keyword **SALES** flies in big (140 px, cyan) and a **red light-leak flash** sweeps across, with a final **emphasis punch** on "sales".
+- Caption phrases: `I'M JUST GONNA SEND THE DAILY DOSE OF DMS` → `UPDATE THE CRM` → `AND I'LL HOP RIGHT INTO SALES`, with **SALES** in red.
+- Last 0.25 s: hold on the punched frame with the caption.
 
 ---
 
 ## Rhythm check
 
-| Shot | Length | Role |
-|---|---|---|
-| S1 | 1.50 | Slow open |
-| S2 | 0.90 | Say |
-| S3 | 2.00 | Show: help right now |
-| S4 | 1.60 | Show: get there |
-| S5 | 1.00 | Say: the turn |
-| **S6** | **4.60** | **Show: the wow (job guide)** |
-| S7 | 1.40 | Breadth + giving side |
-| S8 | 0.60 | Bookend |
-| S9 | 1.40 | Lockup |
-| **Total** | **15.00** | 9 shots |
+| Beat | Start | Length | Visual event |
+|---|---|---|---|
+| A | 0.00 | 1.24 | Neon "10:50" + clock |
+| B | 1.24 | 1.28 | Play card + green check |
+| C | 2.52 | 2.14 | Phone → "POSTING TOMORROW AM" badge |
+| D | 4.66 | 5.46 | ME + PARTNER → DM SETTING OFFER → CASH → trend line + ADS |
+| E | 10.12 | 4.88 | Whip → DM stack → CRM checklist → SALES + flash |
 
-## Cut for time (from the brief)
-Splash / Create account / Allow location (the role screen appears in the carousel instead) · offline saving · spoken job tips · resume Q&A · Companion chat · Stripe checkout · food pickup tracking · "Fill in for me" on employer sites. Any of these can be swapped in; S7's carousel is the easiest place.
+A new visual about **every 1.0–1.3 s**. A push-in on every cut, alternating wide and punched framing. One pattern break (the whip) at the 2/3 mark.
+
+## Smoothness
+- Output **60 fps**. Zooms, captions and graphics are computed from continuous time. The 30 fps footage shows each source frame twice, while the eased zoom on top keeps motion fluid.
+- Push-ins use ease-in-out, punches use ease-out, and nothing moves linearly. Motion blur on fly-ins, the whip and the line draw.
 
 ---
 
 ## Open questions
 
-1. **Thumb tap:** your shot idea has a thumb tapping Send. The reference never shows hands, so I've used the app's own pressed state plus a soft touch ripple. OK, or do you want an actual thumb?
-2. **Third-party UI:** I'm drawing the job post and the mail compose as plain, unbranded screens rather than showing Craigslist or Gmail. OK?
-3. **Demo details:** the message, phone number (a 555 number) and email address in S6 are made up for a fictional "Sam". OK?
-4. **Composition:** this becomes a **third composition**, `NorthstarLaunch3`, so the first two films stay as they are.
+1. **"10:50":** I'm reading "$10.50" as the time, **10:50 PM**. Correct?
+2. **Name chips:** OK to label them `ME` + `PARTNER`, or do you want real names or handles?
+3. **Ending:** the cut ends on "…hop right into sales." Do you want an end card (a name, handle or CTA) in the last ~1 s? It would trim about 1 s of speech.
+4. **Audio:** keep your original audio only, or add a music bed under it (you'd need to supply a track you have rights to)?

@@ -76,3 +76,9 @@ scratch/
 
 .env.save
 .expo/
+
+# Generated voice recordings (made once, reused)
+.cache/
+
+# Landing page lives in its own repository (RoyalStar120/northstarlandingpage)
+Zipsite/

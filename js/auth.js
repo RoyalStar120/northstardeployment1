@@ -7,16 +7,12 @@
 // 1. DYNAMIC DEVICE THEME DETECTION & SYNCHRONIZATION
 // ==========================================================================
 
-// Dark mode is switched off for now: the app always renders in light mode.
+// Light / dark mode is owned by js/ns-boot.js (window.nsTheme); these follow it.
 function getSystemTheme() {
-  return 'light';
+  return window.nsTheme ? window.nsTheme.current() : 'light';
 }
 
-function applyTheme() {
-  if (typeof document === 'undefined') return;
-  document.documentElement.classList.remove('dark');
-  document.documentElement.classList.add('light');
-}
+function applyTheme() {}
 
 function initDeviceThemeDetection() {
   applyTheme('light');
@@ -51,44 +47,16 @@ const REGISTERED_USERS_KEY = 'northstar_registered_users_v2';
   } catch (e) {}
 })();
 
+// Accounts live on the server (/api/auth/*). No demo accounts or passwords ship in this file;
+// reviewer and test accounts are created on the server and shared privately.
 function getRegisteredUsersMap() {
-  const defaultDemoAccounts = {
-    'demo': {
-      id: 'demo-seeker-001',
-      username: 'demo',
-      full_name: 'Demo Seeker',
-      email: 'demo@northstar.local',
-      role: 'seeker',
-      password: 'demo123'
-    },
-    'seeker': {
-      id: 'seeker-test-001',
-      username: 'seeker',
-      full_name: 'Alex Seeker',
-      email: 'seeker@northstar.local',
-      role: 'seeker',
-      password: 'northstar123'
-    },
-    'volunteer': {
-      id: 'volunteer-test-001',
-      username: 'volunteer',
-      full_name: 'Jordan Volunteer',
-      email: 'volunteer@northstar.local',
-      role: 'volunteer',
-      password: 'northstar123'
-    }
-  };
-
   try {
     const raw = localStorage.getItem(REGISTERED_USERS_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      return { ...defaultDemoAccounts, ...parsed };
-    }
+    if (raw) return JSON.parse(raw) || {};
   } catch (e) {
     console.warn('Could not read registered users map:', e);
   }
-  return defaultDemoAccounts;
+  return {};
 }
 
 function saveRegisteredUserRecord(userRecord) {

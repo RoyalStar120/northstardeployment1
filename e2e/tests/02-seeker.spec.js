@@ -1,5 +1,5 @@
 // Seeker workflows: home, search, map, resource details, gigs, companion, call for help.
-import { test, expect, expectHealthy, apiSignup, seedSession } from '../helpers/fixtures.js';
+import { test, expect, expectHealthy, apiSignup, seedSession, greeting } from '../helpers/fixtures.js';
 
 test.describe('Seeker', () => {
   let acc;
@@ -8,12 +8,15 @@ test.describe('Seeker', () => {
     await seedSession(page, acc);
   });
 
-  test('home dashboard shows a shelter, nearby places and safety section', async ({ page, diagnostics }) => {
+  test('home dashboard shows nearby essentials, quick actions, progress and nearby places', async ({ page, diagnostics }) => {
     await page.goto('/seeker-dashboard.html');
-    await expect(page.getByRole('heading', { name: `Hi, ${acc.username}` })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Shelter open all night' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: greeting(acc.username) })).toBeVisible();
+    await expect(page.getByText(/\d+ places? within \d+ mi/)).toBeVisible();
+    for (const action of ['Build my resume', 'Find a job', 'Ask Companion', 'Call for help']) {
+      await expect(page.getByText(action, { exact: true })).toBeVisible();
+    }
+    await expect(page.getByRole('heading', { name: 'My progress' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Near you' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Just in case' })).toBeVisible();
     expectHealthy(diagnostics);
     expect(diagnostics.consoleErrors).toEqual([]);
   });
@@ -78,10 +81,12 @@ test.describe('Seeker', () => {
     await page.goto('/companion.html');
     await expect(page.getByRole('heading', { name: 'How can I help today?' })).toBeVisible();
     await page.locator('#chatbot-input-field').fill('Where can I get a free meal today?');
-    const [resp] = await Promise.all([
-      page.waitForResponse((r) => r.url().endsWith('/api/chat'), { timeout: 100_000 }),
-      page.getByRole('button', { name: 'Send' }).click(),
-    ]);
+    const chatResp = page.waitForResponse((r) => r.url().endsWith('/api/chat'), { timeout: 100_000 });
+    await page.getByRole('button', { name: 'Send' }).click();
+    // First use asks before anything goes to the AI services
+    await page.getByRole('button', { name: 'Allow and continue' }).click();
+    const resp = await chatResp;
+    expect(JSON.parse(resp.request().postData()).aiConsent).toBe(true);
     const body = await resp.json();
     if (body.success) {
       expect(body.reply.length).toBeGreaterThan(10);
@@ -93,7 +98,7 @@ test.describe('Seeker', () => {
   });
 
   test('companion rejects an empty message at the API', async ({ request }) => {
-    const res = await request.post('/api/chat', { data: { message: '   ' } });
+    const res = await request.post('/api/chat', { data: { message: '   ', aiConsent: true } });
     expect(res.status()).toBe(400);
   });
 

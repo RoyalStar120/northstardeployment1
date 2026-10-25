@@ -1,15 +1,18 @@
 /* ==========================================================================
    Northstar — app design system (v3)
    White screens, near-black type, one signature yellow. Flat surfaces with
-   hairline borders, black pill buttons, gray chips. Light only.
+   hairline borders, black pill buttons, gray chips.
    Token names are kept from v2 so every page follows: --cream is the page,
    --sand the gray fill, --amber the yellow.
+   Dark mode: js/ns-boot.js puts .dark on <html> (Light / Dark / Auto in Settings).
+   Every color below has a dark value in the html.dark block; components only use
+   tokens. Yellow surfaces keep the light palette in both themes (see "On yellow").
    ========================================================================== */
 
 :root {
   --ink: #111111;
   --ink-2: #3F3F3F;
-  --muted: #737373;
+  --muted: #6B6B6B; /* 4.8:1 on --sand, 5.3:1 on white */
   --cream: #FFFFFF;
   --paper: #FFFFFF;
   --sand: #F2F2F2;
@@ -28,6 +31,31 @@
   --danger-wash: #FEF3F2;
   --danger-line: #FECDCA;
   --frame-bg: #EBEBEB;
+  --frame-line: #111111;
+
+  /* Supporting colors (each has a dark value below) */
+  --on-ink: #FFFFFF;          /* text and icons on an --ink fill (black pills) */
+  --ink-hover: #2A2A2A;
+  --sand-hover: #E9E9E9;
+  --line-strong: #D6D6D6;
+  --field-line: #DCDCDC;
+  --placeholder: #8A8A8A;
+  --track: #EEEEEE;
+  --empty-bg: #FAFAFA;
+  --empty-line: #D9D9D9;
+  --handle: #D4D4D4;
+  --scrim: rgba(0, 0, 0, 0.4);
+  --warm: #F1EEE7;            /* warm gray tiles on volunteer screens */
+  --warm-line: #ECE7DC;
+  --ok-wash: #E6F4EA;
+  --ok-ink: #1E7B45;
+  --ok-dot: #22A55A;
+  --flag-wash: #FFF1D6;
+  --flag-ink: #6B4A00;
+  --map-bg: #F2F2F2;
+  --brand-n: #111111;         /* the "N" in the Northstar mark */
+  --shadow-float: 0 18px 40px -18px rgba(0, 0, 0, 0.35);
+  --shadow-sheet: 0 -12px 40px -12px rgba(0, 0, 0, 0.25);
 
   --r-card: 18px;
   --r-tile: 12px;
@@ -39,6 +67,81 @@
   --nav-h: 58px;
 
   color-scheme: light;
+}
+
+/* ---- Dark palette ----------------------------------------------------------
+   Same structure, flipped: near-black page, raised dark cards, light type,
+   white pills where light mode has black ones, and the same yellow. */
+html.dark {
+  --ink: #F2F2F2;
+  --ink-2: #C8C8C8;
+  --muted: #9A9A9A;
+  --cream: #0E0E0E;
+  --paper: #191919;
+  --sand: #242424;
+  --sand-deep: #313131;
+  --line: #2A2A2A;
+  --amber: #FFD43B;
+  --amber-hover: #FFDB5C;
+  --amber-deep: #111111;
+  --amber-wash: #2A2511;
+  --amber-line: #4D4216;
+  --amber-ink: #F5D565;
+  --leaf: #52C285;
+  --leaf-wash: #191919;
+  --leaf-line: #285C3F;
+  --danger: #FF8A80;
+  --danger-wash: #2B1614;
+  --danger-line: #5E2723;
+  --frame-bg: #000000;
+  --frame-line: #2A2A2A;
+
+  --on-ink: #111111;
+  --ink-hover: #FFFFFF;
+  --sand-hover: #2C2C2C;
+  --line-strong: #3A3A3A;
+  --field-line: #343434;
+  --placeholder: #7C7C7C;
+  --track: #2A2A2A;
+  --empty-bg: #141414;
+  --empty-line: #333333;
+  --handle: #3C3C3C;
+  --scrim: rgba(0, 0, 0, 0.62);
+  --warm: #1F1D18;
+  --warm-line: #2E2B24;
+  --ok-wash: #15281D;
+  --ok-ink: #6FD39A;
+  --ok-dot: #3FCB78;
+  --flag-wash: #2E2412;
+  --flag-ink: #F2C46B;
+  --map-bg: #1A1A1A;
+  --brand-n: #FFFFFF;
+  --shadow-lift: 0 1px 2px rgba(0, 0, 0, 0.5), 0 8px 18px -8px rgba(0, 0, 0, 0.8);
+  --shadow-float: 0 18px 40px -16px rgba(0, 0, 0, 0.85);
+  --shadow-sheet: 0 -12px 40px -12px rgba(0, 0, 0, 0.8);
+
+  color-scheme: dark;
+}
+
+/* ---- On yellow ---------------------------------------------------------------
+   Yellow surfaces look the same in both themes: inside them the light palette
+   comes back, so black text, black pills and white chips stay readable. */
+html.dark :is(
+  .ns-on-amber, .ns-card--amber, .ns-tile--yellow, .ns-btn--yellow, .ns-badge--amber,
+  .ns-pay, .ns-feature, .history-status--go, .ns-avatar-btn, .ns-role-splash--give,
+  .ns-nav__item.is-active .material-symbols-outlined, .bg-amber, .rb-paper
+) {
+  --ink: #111111;
+  --ink-2: #3F3F3F;
+  --muted: #5A4A12;
+  --paper: #FFFFFF;
+  --cream: #FFFFFF;
+  --sand: #F2F2F2;
+  --line: rgba(17, 17, 17, 0.14);
+  --on-ink: #FFFFFF;
+  --ink-hover: #2A2A2A;
+  --brand-n: #111111;
+  color: var(--ink);
 }
 
 /* Icons: self-hosted subset of Material Symbols Outlined (assets/fonts/, ~30 KB).
@@ -212,7 +315,7 @@ html:not(.ns-icons-ready) .material-symbols-outlined {
     width: 420px;
     height: min(900px, calc(100dvh - 48px));
     border-radius: 48px;
-    border: 10px solid #111111;
+    border: 10px solid var(--frame-line);
     box-shadow: 0 40px 90px -40px rgba(0, 0, 0, 0.45);
   }
 }
@@ -230,6 +333,13 @@ html:not(.ns-icons-ready) .material-symbols-outlined {
       center / 64px auto no-repeat,
     var(--cream);
   transition: opacity 0.26s ease, background-size 0.4s var(--ease);
+}
+
+html.dark .app-frame::after {
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='236 40 1090 966'%3E%3Cpath fill='%23FFFFFF' d='M250 340 L752 737 L752 405 L881 493 L881 991 L381 597 L381 991 L250 905 Z'/%3E%3Cpath fill='%23FFC933' d='M1062 55 C1072 150 1088 225 1120 250 C1152 282 1215 290 1310 300 C1215 310 1152 318 1120 350 C1088 375 1072 450 1062 548 C1052 450 1036 375 1004 350 C972 318 909 310 813 300 C909 290 972 282 1004 250 C1036 225 1052 150 1062 55 Z'/%3E%3C/svg%3E")
+      center / 64px auto no-repeat,
+    var(--cream);
 }
 
 html.ns-leaving .app-frame::after {
@@ -499,7 +609,7 @@ button.ns-card:active,
 
 .ns-tile--leaf {
   background: var(--ink);
-  color: #fff;
+  color: var(--on-ink);
 }
 
 .ns-tile--sm {
@@ -585,11 +695,11 @@ button.ns-card:active,
 
 .ns-btn--primary {
   background: var(--ink);
-  color: #fff;
+  color: var(--on-ink);
 }
 
-.ns-btn--primary:hover { background: #2A2A2A; }
-.ns-btn--primary:disabled { background: var(--sand); color: #A3A3A3; opacity: 1; }
+.ns-btn--primary:hover { background: var(--ink-hover); }
+.ns-btn--primary:disabled { background: var(--sand); color: var(--muted); opacity: 1; }
 
 .ns-btn--yellow {
   background: var(--amber);
@@ -603,7 +713,7 @@ button.ns-card:active,
   color: var(--ink);
 }
 
-.ns-btn--secondary:hover { background: #E9E9E9; }
+.ns-btn--secondary:hover { background: var(--sand-hover); }
 
 .ns-btn--ghost {
   background: var(--paper);
@@ -611,18 +721,18 @@ button.ns-card:active,
   color: var(--ink);
 }
 
-.ns-btn--ghost:hover { border-color: #D6CEC1; }
+.ns-btn--ghost:hover { border-color: var(--line-strong); }
 
 .ns-btn--dark {
   background: var(--ink);
-  color: #fff;
+  color: var(--on-ink);
 }
 
-.ns-btn--dark:hover { background: #1A2940; }
+.ns-btn--dark:hover { background: var(--ink-hover); }
 
 .ns-btn--leaf {
   background: var(--leaf);
-  color: #fff;
+  color: var(--on-ink);
 }
 
 .ns-btn--danger {
@@ -654,7 +764,7 @@ button.ns-card:active,
   font-weight: 700;
   color: var(--ink);
   text-decoration: underline;
-  text-decoration-color: rgba(0, 0, 0, 0.3);
+  text-decoration-color: color-mix(in srgb, currentColor 35%, transparent);
   text-underline-offset: 4px;
   cursor: pointer;
 }
@@ -687,7 +797,7 @@ button.ns-card:active,
 .ns-chip[aria-pressed='true'] {
   background: var(--ink);
   border-color: var(--ink);
-  color: #fff;
+  color: var(--on-ink);
   font-weight: 700;
 }
 
@@ -712,7 +822,7 @@ button.ns-card:active,
 
 .ns-badge .material-symbols-outlined { font-size: 16px; }
 
-.ns-badge--leaf { background: #fff; border-color: var(--leaf-line); color: var(--leaf); }
+.ns-badge--leaf { background: var(--paper); border-color: var(--leaf-line); color: var(--leaf); }
 .ns-badge--amber { background: var(--amber); color: var(--ink); }
 .ns-badge--sand { background: var(--sand); color: var(--ink-2); }
 /* "Open now" style: gray pill with a live green dot */
@@ -721,7 +831,7 @@ button.ns-card:active,
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #22A55A;
+  background: var(--ok-dot);
 }
 .ns-badge--danger { background: var(--danger-wash); border-color: var(--danger-line); color: var(--danger); }
 
@@ -742,7 +852,7 @@ button.ns-card:active,
   margin: 0;
   padding: 0 14px;
   border-radius: var(--r-field);
-  border: 1px solid #DCDCDC;
+  border: 1px solid var(--field-line);
   background: var(--paper);
   color: var(--ink);
   font-family: inherit;
@@ -768,8 +878,12 @@ button.ns-card:active,
   background-position: right 16px center;
 }
 
+html.dark .ns-select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23F2F2F2' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
 .ns-input::placeholder,
-.ns-textarea::placeholder { color: #9AA1AC; font-weight: 500; }
+.ns-textarea::placeholder { color: var(--placeholder); font-weight: 500; }
 
 .ns-input:focus,
 .ns-select:focus,
@@ -810,7 +924,7 @@ button.ns-card:active,
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  background: #fff;
+  background: #FFFFFF;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
   transition: transform 0.26s var(--spring);
 }
@@ -850,11 +964,14 @@ button.ns-card:active,
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 4px 10px -4px rgba(0, 0, 0, 0.18);
 }
 
+html.dark .ns-segment > button.is-active,
+html.dark .ns-segment > button[aria-pressed='true'] { background: var(--sand-deep); box-shadow: none; }
+
 /* Progress */
 .ns-progress {
   height: 8px;
   border-radius: 8px;
-  background: #EEEEEE;
+  background: var(--track);
   overflow: hidden;
 }
 
@@ -871,8 +988,8 @@ button.ns-card:active,
 .ns-empty {
   padding: 24px 20px;
   border-radius: var(--r-card);
-  border: 1px dashed #D9D9D9;
-  background: #FAFAFA;
+  border: 1px dashed var(--empty-line);
+  background: var(--empty-bg);
   text-align: center;
 }
 
@@ -974,7 +1091,7 @@ button.ns-card:active,
 .ns-sheet-backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--scrim);
   animation: nsFade 0.25s ease both;
 }
 
@@ -986,7 +1103,7 @@ button.ns-card:active,
   border-radius: 24px 24px 0 0;
   background: var(--paper);
   color: var(--ink);
-  box-shadow: 0 -12px 40px -12px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--shadow-sheet);
   scrollbar-width: none;
 }
 
@@ -998,7 +1115,7 @@ button.ns-card:active,
   height: 5px;
   margin: 0 auto 14px;
   border-radius: 999px;
-  background: #D4D4D4;
+  background: var(--handle);
   cursor: grab;
   touch-action: none;
 }
@@ -1054,7 +1171,7 @@ button.ns-card:active,
   position: absolute;
   inset: 0;
   z-index: 170;
-  background: rgba(0, 0, 0, 0.38);
+  background: var(--scrim);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.25s ease;
@@ -1075,7 +1192,7 @@ button.ns-card:active,
   flex-direction: column;
   border-radius: 28px 28px 0 0;
   background: var(--cream);
-  box-shadow: 0 -12px 40px -12px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-sheet);
   overflow: hidden;
   transform: translateY(100%);
   transition: transform 0.36s var(--ease);
@@ -1107,6 +1224,8 @@ button.ns-card:active,
   border-radius: 9px;
   background-size: 17px auto;
 }
+
+html.dark .ns-chat__mark { background-color: #000000; box-shadow: inset 0 0 0 1px var(--line); }
 
 .ns-chat__chips {
   display: flex;
@@ -1150,7 +1269,7 @@ button.ns-card:active,
 .ns-chat__bubble--out {
   align-self: flex-end;
   background: var(--ink);
-  color: #fff;
+  color: var(--on-ink);
   border-top-right-radius: 6px;
 }
 
@@ -1199,7 +1318,7 @@ body.map-page #chat-fab { display: none !important; }
   align-items: center;
   justify-content: center;
   padding: 20px;
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--scrim);
 }
 
 .ns-offline-modal-card {
@@ -1282,7 +1401,7 @@ body.map-page #chat-fab { display: none !important; }
 /* ---- Leaflet touch-ups ------------------------------------------------------------- */
 .leaflet-container {
   font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
-  background: #F2F2F2;
+  background: var(--map-bg);
 }
 
 .leaflet-popup-content-wrapper {
@@ -1294,6 +1413,17 @@ body.map-page #chat-fab { display: none !important; }
   font-size: 10px;
   background: rgba(255, 255, 255, 0.7) !important;
 }
+
+/* Dark map: the same OpenStreetMap tiles, inverted and calmed so streets read
+   light-on-dark (pins and labels are HTML, so they keep their own colors) */
+html.dark .leaflet-tile-pane,
+html.dark .ns-map-soft .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.88) saturate(0.55);
+}
+html.dark .leaflet-control-attribution { background: rgba(20, 20, 20, 0.75) !important; color: #9A9A9A; }
+html.dark .leaflet-control-attribution a { color: #C8C8C8; }
+html.dark .leaflet-popup-content-wrapper,
+html.dark .leaflet-popup-tip { background: var(--paper); color: var(--ink); }
 
 /* ---- Print (resume) ------------------------------------------------------------------ */
 @media print {
@@ -1327,6 +1457,7 @@ body.map-page #chat-fab { display: none !important; }
 /* ---- Volunteer screens: warm page, drawn icons ------------------------------- */
 /* js/ns-boot.js adds .ns-volunteer to <html> for volunteers, before the page paints */
 html.ns-volunteer { --cream: #FAF7F0; }
+html.dark.ns-volunteer { --cream: #12110E; }
 
 /* Yellow tile holding a drawn icon (assets/illustrations/icons) */
 .ns-art-tile {
@@ -1341,6 +1472,14 @@ html.ns-volunteer { --cream: #FAF7F0; }
 }
 .ns-art-tile img { width: 32px; height: 32px; display: block; }
 .ns-art-tile--white { background: #FFFFFF; }
+/* The drawings have black outlines, so in dark mode their tiles stay light (soft yellow) */
+html.dark .ns-art-tile { background: #F4E7B0; }
+html.dark .ns-art-tile--white { background: #EDEDED; }
+/* Drawings sitting right on a dark surface get a thin light outline around their black one */
+html.dark img[src*="illustrations/"] {
+  filter: drop-shadow(1px 0 0 #CFCFCF) drop-shadow(-1px 0 0 #CFCFCF) drop-shadow(0 1px 0 #CFCFCF) drop-shadow(0 -1px 0 #CFCFCF);
+}
+html.dark :is(.ns-art-tile, .ns-on-amber, .ns-card--amber, .ns-feature) img[src*="illustrations/"] { filter: none; }
 
 /* Empty state with a drawing on top */
 .ns-empty__art { display: block; width: 104px; height: auto; margin: 0 auto 12px; }
@@ -1367,8 +1506,8 @@ html.ns-volunteer { --cream: #FAF7F0; }
 .history-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
 .history-date { font-size: 12px; font-weight: 600; color: var(--muted); white-space: nowrap; }
 .history-status { height: 24px; padding: 0 9px; font-size: 11.5px; }
-.history-status--wait { background: #F1EEE7; color: var(--ink-2); }
-.history-status--done { background: #E6F4EA; color: #1E7B45; }
+.history-status--wait { background: var(--warm); color: var(--ink-2); }
+.history-status--done { background: var(--ok-wash); color: var(--ok-ink); }
 .history-status--go { background: var(--amber); color: var(--ink); }
 .history-filters { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
 .history-filters::-webkit-scrollbar { display: none; }
@@ -1385,12 +1524,34 @@ html.ns-volunteer { --cream: #FAF7F0; }
   justify-content: center;
   padding: 32px;
   text-align: center;
-  clip-path: circle(0 at var(--rs-x, 50%) var(--rs-y, 50%));
-  animation: rs-reveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  overflow: hidden;
 }
-.ns-role-splash--give { background: var(--amber); color: var(--ink); }
-.ns-role-splash--find { background: #111111; color: #FFFFFF; }
-@keyframes rs-reveal { to { clip-path: circle(150% at var(--rs-x, 50%) var(--rs-y, 50%)); } }
+.ns-role-splash--give { --rs-color: var(--amber); color: var(--ink); }
+.ns-role-splash--find { --rs-color: #111111; color: #FFFFFF; }
+html.dark .ns-role-splash--find { --rs-color: #000000; }
+/* The color: a circle that grows from the tap. Transform only, so it stays on the GPU. */
+.ns-role-splash__fill {
+  position: absolute;
+  left: calc(var(--rs-x, 50%) - var(--rs-r, 600px));
+  top: calc(var(--rs-y, 50%) - var(--rs-r, 600px));
+  width: calc(var(--rs-r, 600px) * 2);
+  height: calc(var(--rs-r, 600px) * 2);
+  border-radius: 50%;
+  background: var(--rs-color);
+  transform: scale(0.001);
+  will-change: transform;
+  backface-visibility: hidden;
+  animation: rs-grow 0.6s cubic-bezier(0.33, 1, 0.68, 1) forwards;
+}
+@keyframes rs-grow { to { transform: scale(1); } }
+.ns-role-splash > :not(.ns-role-splash__fill) { position: relative; transition: opacity 0.2s ease; }
+/* Before the page changes the art fades; the color stays */
+.ns-role-splash.is-leaving > :not(.ns-role-splash__fill) { opacity: 0 !important; }
+
+/* Home after a switch opens under the same color, then fades it away (js/ns-boot.js) */
+html.ns-role-arrive .app-frame::after { opacity: 1; background: #111111; transition: none; }
+html.ns-role-arrive--give .app-frame::after { background: var(--amber); }
+html.ns-role-arrive.ns-role-arrive--out .app-frame::after { opacity: 0; transition: opacity 0.45s ease; }
 
 .ns-role-splash__art { width: 176px; height: 176px; }
 .ns-role-splash__art svg { width: 100%; height: 100%; overflow: visible; }
@@ -1451,7 +1612,7 @@ html.ns-volunteer { --cream: #FAF7F0; }
 /* Reduced motion: no movement, just the screen */
 .ns-role-splash.is-reduced,
 .ns-role-splash.is-reduced * { animation: none !important; }
-.ns-role-splash.is-reduced { clip-path: none; }
+.ns-role-splash.is-reduced .ns-role-splash__fill { transform: none; }
 .ns-role-splash.is-reduced .ns-role-splash__title,
 .ns-role-splash.is-reduced .ns-role-splash__sub,
 .ns-role-splash.is-reduced .rs-hand,
@@ -1460,3 +1621,37 @@ html.ns-volunteer { --cream: #FAF7F0; }
 .ns-role-splash.is-reduced .rs-pin { opacity: 1; transform: none; stroke-dashoffset: 0; }
 .ns-role-splash.is-reduced .rs-spark,
 .ns-role-splash.is-reduced .rs-star { transform: none; }
+
+/* ---- Drawn-icon buttons (both Home screens): 2-up cards with a drawing tile ---- */
+.quick-action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.quick-action-card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 16px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-decoration: none;
+  color: inherit;
+  transition: background-color 0.12s, border-color 0.12s, transform 0.16s var(--ease);
+  -webkit-tap-highlight-color: transparent;
+}
+.quick-action-card:active { background: var(--sand); transform: scale(0.98); }
+.quick-action-card .ns-art-tile { margin-bottom: 10px; }
+html.ns-volunteer .quick-action-card { border-color: var(--warm-line); }
+
+/* ---- Big yellow card with a drawing in the corner (Gigs intro) ---- */
+.now-card {
+  position: relative;
+  overflow: hidden;
+  padding: 18px;
+  border-radius: 18px;
+  background: var(--amber);
+  color: var(--ink);
+}
+.now-card__art { position: absolute; right: 10px; top: 12px; width: 86px; pointer-events: none; }
+.now-card__title { font-size: 24px; line-height: 1.12; font-weight: 800; letter-spacing: -0.025em; max-width: 68%; }
+.now-card__meta { margin-top: 8px; font-size: 14px; line-height: 1.45; font-weight: 500; color: #2B2B2B; max-width: 86%; }
+/* Volunteers get "Have work to offer?" on Gigs instead */
+html.ns-volunteer #gigs-intro-card { display: none; }

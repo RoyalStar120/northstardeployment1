@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1200" role="img" aria-label="Northstar">
+  <rect width="1200" height="1200" rx="264" fill="#0D0E13"/>
+  <g transform="translate(600 600) scale(0.84) translate(-780 -523)">
+    <path fill="#F8F4EC" d="M250 340 L752 737 L752 405 L881 493 L881 991 L381 597 L381 991 L250 905 Z"/>
+    <path fill="#F3B43C" d="M1062 55 C1072 150 1088 225 1120 250 C1152 282 1215 290 1310 300 C1215 310 1152 318 1120 350 C1088 375 1072 450 1062 548 C1052 450 1036 375 1004 350 C972 318 909 310 813 300 C909 290 972 282 1004 250 C1036 225 1052 150 1062 55 Z"/>
+  </g>
+</svg>

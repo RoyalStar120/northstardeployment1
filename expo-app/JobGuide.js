@@ -201,6 +201,9 @@ export default function JobGuide({ job, onClose }) {
         ) : null}
 
         {filledNote && step.step === 'form' ? <Text style={styles.filledNote}>{filledNote}</Text> : null}
+        {step.step === 'form' && hasProfile && step.canFill && !filledNote ? (
+          <Text style={styles.shareNote}>Fill in for me puts your name, phone and email into this employer’s form on their website.</Text>
+        ) : null}
 
         {emailTo && !askSent ? (
           <Pressable style={styles.addrBox} onPress={copyAddress} accessibilityLabel={`Email address ${emailTo}. Tap to copy.`}>
@@ -337,6 +340,7 @@ const styles = StyleSheet.create({
   asksLabel: { fontSize: 12, fontWeight: '800', color: '#555555', textTransform: 'uppercase', letterSpacing: 0.4 },
   asksText: { marginTop: 2, fontSize: 15, lineHeight: 21, color: '#111111' },
   filledNote: { marginTop: 8, fontSize: 15, fontWeight: '600', color: '#1E7B45' },
+  shareNote: { marginTop: 8, fontSize: 14, lineHeight: 20, color: '#555555' },
   addrBox: {
     marginTop: 10,
     flexDirection: 'row',

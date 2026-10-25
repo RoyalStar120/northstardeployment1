@@ -1,0 +1,37 @@
+{
+  "_about": "Spoken tips on the Gigs page (headphones button). One recording per kind is made once with ElevenLabs and reused, so changing a text here makes a new recording for that kind only.",
+  "intro": "Here are a few tips before you go.",
+  "payNote": "Agree on the pay, and when you'll be paid, before you start work.",
+  "kinds": [
+    {
+      "id": "labor",
+      "match": "mov(e|er|ers|ing)|haul|lift|load|unload|warehouse|freight|pallet|truck|junk",
+      "text": "Wear closed-toe shoes or boots, and bring work gloves if you have them. Lift with your legs, not your back, and ask for help with anything too heavy. Check the address and a phone number for the person in charge before you head out."
+    },
+    {
+      "id": "kitchen",
+      "match": "kitchen|food|dish|cook|prep|meal|catering|restaurant|server|barista",
+      "text": "Bring your food handler card if you have one. Wear non-slip, closed-toe shoes and tie your hair back. When you arrive, ask for the kitchen lead and check when your breaks are."
+    },
+    {
+      "id": "outdoor",
+      "match": "yard|clean|landscap|rake|outdoor|handyman|demo|paint|garden|lawn|tilling",
+      "text": "Dress in layers for the weather and bring water. Ask ahead whether tools are provided. Check the address and cross streets before you start."
+    },
+    {
+      "id": "event",
+      "match": "event|setup|set-up|stage|chair|festival|market|venue",
+      "text": "Wear dark, comfortable clothes and supportive shoes. Try to arrive ten minutes early and ask for the team lead. Save their phone number in case plans change."
+    },
+    {
+      "id": "online",
+      "match": "digital|microtask|online|label|testing|survey|remote",
+      "text": "You'll need a phone or computer with a steady internet connection. A library or community center with free Wi-Fi works well. Check how and when you get paid before you start."
+    },
+    {
+      "id": "general",
+      "match": "",
+      "text": "Before you go, check the address, who to ask for, and a phone number to reach them. Stay hydrated, and put your safety first."
+    }
+  ]
+}

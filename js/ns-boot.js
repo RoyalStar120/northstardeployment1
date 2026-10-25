@@ -6,12 +6,78 @@
  */
 (function () {
   var root = document.documentElement;
-  root.classList.remove('dark');
-  root.classList.add('light');
-  try {
-    localStorage.setItem('ns_theme', 'light');
-    localStorage.setItem('northstar_theme', 'light');
-  } catch (e) {}
+
+  // ---- Light / dark mode -----------------------------------------------------
+  // Choice is 'light', 'dark' or 'system' (follow the phone), saved per device.
+  // Applied here, before anything paints, so pages never flash the wrong colors.
+  var THEME_KEY = 'northstar_theme_choice';
+  var darkQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+  function themeChoice() {
+    var c = null;
+    try { c = localStorage.getItem(THEME_KEY); } catch (e) {}
+    return c === 'light' || c === 'dark' || c === 'system' ? c : 'system';
+  }
+  function resolveTheme(choice) {
+    if (choice === 'system') return darkQuery && darkQuery.matches ? 'dark' : 'light';
+    return choice;
+  }
+  function paintTheme(theme) {
+    root.classList.toggle('dark', theme === 'dark');
+    root.classList.toggle('light', theme !== 'dark');
+    root.style.colorScheme = theme;
+    // Browser / phone status bar color
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (!meta && document.head) {
+      meta = document.createElement('meta');
+      meta.name = 'theme-color';
+      document.head.appendChild(meta);
+    }
+    if (meta) meta.setAttribute('content', theme === 'dark' ? '#0E0E0E' : '#FFFFFF');
+    // The Expo app sets its status bar and background to match
+    try {
+      if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'theme', theme: theme }));
+    } catch (e) {}
+  }
+  function applyTheme(animate) {
+    var choice = themeChoice();
+    var theme = resolveTheme(choice);
+    var changed = root.classList.contains('dark') !== (theme === 'dark');
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // Tell the page (icons, Settings) once the new colors are on
+    var paint = function () {
+      paintTheme(theme);
+      try { window.dispatchEvent(new CustomEvent('ns:theme', { detail: { theme: theme, choice: choice } })); } catch (e) {}
+    };
+    // Soft cross-fade between themes where the browser supports it
+    if (animate && changed && !reduce && document.startViewTransition) {
+      document.startViewTransition(paint);
+    } else {
+      paint();
+    }
+    return theme;
+  }
+  window.nsTheme = {
+    choice: themeChoice,
+    current: function () { return root.classList.contains('dark') ? 'dark' : 'light'; },
+    set: function (choice) {
+      try { localStorage.setItem(THEME_KEY, choice); } catch (e) {}
+      return applyTheme(true);
+    },
+    // One tap: flip whatever is showing now
+    toggle: function () {
+      return window.nsTheme.set(window.nsTheme.current() === 'dark' ? 'light' : 'dark');
+    }
+  };
+  applyTheme(false);
+  // Auto follows the phone live; other tabs/pages follow a change made here
+  if (darkQuery) {
+    var onSystemChange = function () { if (themeChoice() === 'system') applyTheme(true); };
+    if (darkQuery.addEventListener) darkQuery.addEventListener('change', onSystemChange);
+    else if (darkQuery.addListener) darkQuery.addListener(onSystemChange);
+  }
+  window.addEventListener('storage', function (e) { if (e.key === THEME_KEY) applyTheme(true); });
+  // Coming back from the back/forward cache with an older theme
+  window.addEventListener('pageshow', function (e) { if (e.persisted) applyTheme(false); });
 
   // Icons are a ligature font: until it loads, names like "arrow_back" would show as text.
   // Keep icons invisible until the font is ready (or give up after 3s).
@@ -248,9 +314,36 @@
     setTimeout(reveal, 1200);
   }
 
+  // After a Find help / Give help switch: open under the splash's color and fade it away.
+  var roleTone = null;
+  try {
+    roleTone = sessionStorage.getItem('ns_role_arrive');
+    sessionStorage.removeItem('ns_role_arrive');
+  } catch (e) {}
+  if (roleTone && !reduceMotion) {
+    root.classList.add('ns-role-arrive', 'ns-role-arrive--' + roleTone);
+    var roleRevealed = false;
+    var roleReveal = function () {
+      if (roleRevealed) return;
+      roleRevealed = true;
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+          root.classList.add('ns-role-arrive--out');
+          setTimeout(function () {
+            root.classList.remove('ns-role-arrive', 'ns-role-arrive--' + roleTone, 'ns-role-arrive--out');
+          }, 500);
+        });
+      });
+    };
+    var roleTimer = null;
+    document.addEventListener('DOMContentLoaded', function () { roleTimer = setTimeout(roleReveal, 180); });
+    window.addEventListener('load', function () { clearTimeout(roleTimer); roleReveal(); });
+    setTimeout(roleReveal, 1200);
+  }
+
   // Coming back through the browser's back/forward cache or reopening app: check session expiry & drop cover
   window.addEventListener('pageshow', function (e) {
-    if (e.persisted) root.classList.remove('ns-leaving', 'ns-entering');
+    if (e.persisted) root.classList.remove('ns-leaving', 'ns-entering', 'ns-role-arrive', 'ns-role-arrive--give', 'ns-role-arrive--find', 'ns-role-arrive--out');
     window.nsCheckSessionExpiry();
   });
 

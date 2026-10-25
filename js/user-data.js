@@ -26,7 +26,9 @@
     'northstar_progress_customized',
     'northstar_last_delivery_id',
     'northstar_planned_dropoff',
-    'northstar_custom_posted_jobs'
+    'northstar_custom_posted_jobs',
+    'northstar_ai_consent',
+    'northstar_blocked_posters'
   ];
   const OWNER_KEY = 'northstar_data_owner';
   const SYNCED_KEY = 'northstar_data_synced_at';

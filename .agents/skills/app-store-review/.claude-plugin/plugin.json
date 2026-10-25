@@ -1,0 +1,26 @@
+{
+  "name": "app-store-review",
+  "version": "2.0.0",
+  "description": "Evidence-based App Store review and iOS 27 engineering, design, accessibility, and product-page readiness for iOS and iPadOS apps.",
+  "author": {
+    "name": "Elie Majorel",
+    "url": "https://github.com/ElxMaj"
+  },
+  "homepage": "https://github.com/ElxMaj/app-store-review-skill",
+  "repository": "https://github.com/ElxMaj/app-store-review-skill",
+  "license": "MIT",
+  "keywords": [
+    "app-store-review",
+    "ios",
+    "ipados",
+    "guideline-4-3",
+    "xcode",
+    "expo",
+    "react-native",
+    "flutter",
+    "ios27",
+    "apple-intelligence",
+    "app-intents",
+    "accessibility"
+  ]
+}

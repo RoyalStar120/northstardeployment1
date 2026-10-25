@@ -24,7 +24,8 @@ test.describe('Static file exposure', () => {
   });
   test('config endpoint exposes no server secrets', async ({ request }) => {
     const cfg = await (await request.get('/api/config')).json();
-    expect(Object.keys(cfg).sort()).toEqual(['googleMapsApiKey', 'supabaseAnonKey', 'supabaseUrl', 'vapidPublicKey']);
+    // supportEmail is the published contact address (App Review Guideline 1.2), not a secret
+    expect(Object.keys(cfg).sort()).toEqual(['googleMapsApiKey', 'supabaseAnonKey', 'supabaseUrl', 'supportEmail', 'vapidPublicKey']);
     const all = JSON.stringify(cfg);
     for (const k of ['SUPABASE_SECRET_KEY', 'GEMINI_API_KEY', 'APIFY_TOKEN', 'VAPID_PRIVATE_KEY', 'HF_TOKEN', 'NORTHSTAR_AI_KEY']) {
       if (process.env[k]) expect(all.includes(process.env[k]), k).toBe(false);

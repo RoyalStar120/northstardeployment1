@@ -1,0 +1,14 @@
+.DS_Store
+.AppleDouble
+.LSOverride
+
+.idea/
+.vscode/
+node_modules/
+playwright-report/
+test-results/
+*.swp
+*~
+
+__pycache__/
+*.pyc

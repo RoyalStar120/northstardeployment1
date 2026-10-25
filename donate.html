@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=0.9, viewport-fit=cover">
 <meta name="theme-color" content="#FFFFFF">
 <title>Donate · Northstar</title>
-<link rel="icon" href="favicon.png">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.png" type="image/png" sizes="512x512">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <script src="js/ns-boot.js"></script>
 <script src="js/user-data.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -47,7 +49,7 @@
         <div id="donation-return-notice" class="hidden mb-4" role="status"></div>
 
         <!-- Your giving total (volunteer only) -->
-        <div id="donate-impact-banner" class="hidden mb-4" style="background:var(--amber);border-radius:18px;padding:16px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+        <div id="donate-impact-banner" class="hidden mb-4 ns-on-amber" style="background:var(--amber);border-radius:18px;padding:16px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
             <div>
                 <p style="font-size:12px;font-weight:600;color:var(--amber-ink);margin-bottom:2px;">You've given</p>
                 <p id="donate-total-amount" style="font-size:30px;font-weight:800;color:var(--ink);line-height:1;">$0</p>
@@ -97,7 +99,7 @@
             </button>
         </div>
 
-        <a href="helper-dashboard.html" class="ns-card ns-card--amber flex items-center gap-4 p-4 mt-4" style="text-decoration:none;color:inherit;">
+        <a href="helper-dashboard.html" class="ns-card ns-card--amber flex items-center gap-4 p-4 mt-4" style="text-decoration:none;">
             <span class="ns-art-tile ns-art-tile--white"><img src="assets/illustrations/icons/heart.svg" alt=""></span>
             <span class="flex-1 min-w-0">
                 <span class="text-[15px] font-bold block">See your impact</span>
@@ -605,7 +607,7 @@ window.submitFoodDonation = async function() {
         try {
             const res = await fetch('/api/deliveries', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: nsAuthHeaders(),
                 body: JSON.stringify({
                     items: itemsSummary,
                     bags: parseInt(bags),
@@ -683,7 +685,12 @@ window.renderAvailableDeliveriesModalContent = async function() {
         </div>
         <div class="mt-4 flex items-center justify-between gap-3">
           <span class="ns-badge ns-badge--sand">${bags} ${bags === 1 ? 'bag' : 'bags'}</span>
-          <button type="button" onclick="acceptDeliveryJob('${id}')" class="ns-btn ns-btn--secondary ns-btn--sm">Claim pickup</button>
+          <span class="flex items-center gap-2">
+            <button type="button" onclick="nsReportPost('delivery', '${encodeURIComponent(job.id)}', '${encodeURIComponent(job.poster_key || '')}')" class="ns-icon-btn ns-icon-btn--sm" aria-label="Report or block this pickup request" title="Report or block">
+              <span class="material-symbols-outlined" aria-hidden="true">flag</span>
+            </button>
+            <button type="button" onclick="acceptDeliveryJob('${id}')" class="ns-btn ns-btn--secondary ns-btn--sm">Claim pickup</button>
+          </span>
         </div>
       </div>`;
   }).join('')}</div>`;
@@ -786,7 +793,7 @@ window.initDonationStatusBar = async function() {
     if (!bar || !session) return;
 
     try {
-        const res = await fetch('/api/deliveries');
+        const res = await fetch('/api/deliveries', { headers: nsAuthHeaders() });
         const data = await res.json();
 
         const live = ['pending_driver', 'driver_assigned', 'in_transit', 'delivered'];

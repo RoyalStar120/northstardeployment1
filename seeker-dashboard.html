@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=0.9, viewport-fit=cover">
 <meta name="theme-color" content="#FFFFFF">
 <title>Home · Northstar</title>
-<link rel="icon" href="favicon.png">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.png" type="image/png" sizes="512x512">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <script src="js/ns-boot.js"></script>
 <script src="js/user-data.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -25,8 +27,8 @@
         border: 0; outline: none; background: transparent;
         font-size: 15px; font-weight: 500; color: var(--ink);
     }
-    .home-search input::placeholder { color: #8A8A8A; }
-    .home-search:focus-within { background: #fff; box-shadow: 0 0 0 1px var(--ink); }
+    .home-search input::placeholder { color: var(--placeholder); }
+    .home-search:focus-within { background: var(--paper); box-shadow: 0 0 0 1px var(--ink); }
     .home-search input::-webkit-search-cancel-button { display: none; }
     .home-search-wrap { position: relative; z-index: 30; }
     .home-results {
@@ -35,8 +37,8 @@
         padding: 4px 14px;
         border-radius: 16px;
         border: 1px solid var(--line);
-        background: #fff;
-        box-shadow: 0 18px 40px -18px rgba(0, 0, 0, 0.35);
+        background: var(--paper);
+        box-shadow: var(--shadow-float);
         animation: nsRise 0.18s var(--ease) both;
     }
     .home-results .ns-row { cursor: pointer; }
@@ -44,33 +46,98 @@
     .home-results mark { background: none; color: inherit; font-weight: 800; }
     .home-chips { display: flex; gap: 8px; overflow-x: auto; margin: 10px -16px 0; padding: 0 16px; scrollbar-width: none; }
     .home-chips::-webkit-scrollbar { display: none; }
-    .now-card {
-        position: relative; overflow: hidden;
-        margin-top: 16px; padding: 18px;
-        border-radius: 18px;
-        background: var(--amber);
-    }
-    .now-card__art { position: absolute; right: 6px; top: 14px; width: 96px; pointer-events: none; }
-    .now-card__title { font-size: 24px; line-height: 1.12; font-weight: 800; letter-spacing: -0.025em; max-width: 72%; }
-    .now-card__meta { margin-top: 8px; font-size: 13px; font-weight: 500; color: #2B2B2B; max-width: 78%; }
     .home-row__end { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+
+    /* Brand row */
+    .home-brand { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .home-brand svg { width: 30px; height: 27px; flex-shrink: 0; overflow: visible; }
+    .home-brand span { font-size: 19px; font-weight: 800; letter-spacing: -0.02em; }
+    .ns-header.home-head { align-items: center; padding-bottom: 6px; }
+
+    /* Greeting */
+    .home-hello { padding: 6px 0 14px; }
+    .home-hello h1 { font-size: clamp(27px, 8vw, 31px); line-height: 1.1; font-weight: 800; letter-spacing: -0.03em; }
+    .home-hello p { margin-top: 4px; font-size: 15px; font-weight: 500; color: var(--muted); }
+
+    /* Nearby verified essentials: a small live map */
+    .home-map {
+        position: relative; display: block; overflow: hidden;
+        margin-top: 14px; height: 214px;
+        border-radius: 20px; border: 1px solid var(--line);
+        background: var(--map-bg); color: var(--ink); text-decoration: none;
+        transition: transform 0.18s var(--ease);
+    }
+    .home-map:active { transform: scale(0.985); }
+    .home-map__tiles { position: absolute; inset: 0; overflow: hidden; }
+    .home-map__tiles img { position: absolute; width: 256px; height: 256px; max-width: none; user-select: none; pointer-events: none; }
+    html.dark .home-map__tiles img { filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.88) saturate(0.55); }
+    .home-map__pin {
+        position: absolute; width: 16px; height: 16px; margin: -8px 0 0 -8px;
+        border-radius: 50%; background: var(--amber); border: 2px solid #111111;
+        box-shadow: 0 2px 6px -2px rgba(0, 0, 0, 0.5);
+    }
+    .home-map__me {
+        position: absolute; width: 14px; height: 14px; margin: -7px 0 0 -7px;
+        border-radius: 50%; background: var(--ink); border: 2.5px solid var(--paper);
+        box-shadow: 0 0 0 6px color-mix(in srgb, var(--ink) 16%, transparent);
+    }
+    .home-map__top { position: absolute; top: 12px; left: 12px; right: 12px; display: flex; justify-content: space-between; gap: 8px; }
+    .home-map__pill {
+        display: inline-flex; align-items: center; gap: 6px;
+        height: 28px; padding: 0 11px; border-radius: 999px;
+        background: var(--paper); box-shadow: var(--shadow-lift);
+        font-size: 11.5px; font-weight: 700; white-space: nowrap;
+    }
+    .home-map__pill--label { letter-spacing: 0.05em; text-transform: uppercase; font-size: 11px; }
+    .home-map__dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok-dot); }
+    .home-map__foot {
+        position: absolute; left: 0; right: 0; bottom: 0;
+        display: flex; align-items: center; gap: 10px;
+        padding: 26px 16px 13px;
+        background: linear-gradient(to top, var(--paper) 52%, color-mix(in srgb, var(--paper) 0%, transparent));
+    }
+    .home-map__foot .material-symbols-outlined:first-child { font-size: 22px; color: var(--ink); }
+    .home-map__title { flex: 1; min-width: 0; font-size: 18px; font-weight: 800; letter-spacing: -0.02em; }
+
+    /* My progress */
+    .home-progress { display: block; margin-top: 22px; padding: 16px; border-radius: 20px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); text-decoration: none; }
+    .home-progress__head { display: flex; align-items: center; gap: 8px; }
+    .home-progress__head h2 { flex: 1; font-size: 18px; font-weight: 800; letter-spacing: -0.02em; }
+    .home-progress__bar { height: 10px; margin-top: 8px; border-radius: 999px; background: var(--track); overflow: hidden; }
+    .home-progress__bar > span { display: block; height: 100%; width: 0; border-radius: inherit; background: var(--amber); transition: transform 0.6s var(--ease); transform-origin: left; }
+
+    /* Offline download */
+    .home-offline {
+        display: flex; align-items: center; gap: 12px;
+        margin-top: 22px; padding: 14px 14px 14px 16px;
+        border-radius: 18px; background: var(--sand);
+    }
+    .home-offline__body { flex: 1; min-width: 0; }
 </style>
 </head>
 <body>
 
 <div class="app-frame">
 
-    <header class="ns-header">
-        <div class="min-w-0">
-            <p class="ns-header__meta !mt-0">Seattle area</p>
-            <h1 id="dashboard-greeting" class="ns-header__title break-words">Hi there</h1>
+    <header class="ns-header home-head">
+        <div class="home-brand" aria-label="Northstar">
+            <svg viewBox="236 40 1090 966" aria-hidden="true">
+                <path fill="var(--brand-n)" d="M250 340 L752 737 L752 405 L881 493 L881 991 L381 597 L381 991 L250 905 Z"/>
+                <path fill="#FFC933" d="M1062 55 C1072 150 1088 225 1120 250 C1152 282 1215 290 1310 300 C1215 310 1152 318 1120 350 C1088 375 1072 450 1062 548 C1052 450 1036 375 1004 350 C972 318 909 310 813 300 C909 290 972 282 1004 250 C1036 225 1052 150 1062 55 Z"/>
+            </svg>
+            <span>Northstar</span>
         </div>
         <div class="ns-header__actions">
             <button id="profile-btn" type="button" class="ns-icon-btn ns-avatar-btn" aria-label="Open settings" onclick="openSettingsModal()">S</button>
         </div>
     </header>
 
-    <main class="ns-main dashboard-container !pt-1">
+    <main class="ns-main dashboard-container !pt-0">
+
+        <div class="home-hello">
+            <h1 id="dashboard-greeting" class="break-words">Hello</h1>
+            <p>Find what you need today.</p>
+        </div>
 
         <!-- Search goes to the map, filtered by what you typed -->
         <div class="home-search-wrap">
@@ -85,24 +152,59 @@
             <div id="home-search-results" class="home-results hidden" role="listbox" aria-label="Search results"></div>
         </div>
 
-        <div class="home-chips" role="group" aria-label="Show on the map">
-            <a href="resource-map.html" class="ns-chip is-active">All</a>
-            <a href="resource-map.html?category=shelter" class="ns-chip"><span class="material-symbols-outlined">bed</span>Beds</a>
-            <a href="resource-map.html?category=food" class="ns-chip"><span class="material-symbols-outlined">restaurant</span>Meals</a>
-            <a href="resource-map.html?category=restroom" class="ns-chip"><span class="material-symbols-outlined">shower</span>Showers</a>
-            <a href="resource-map.html?category=wifi" class="ns-chip"><span class="material-symbols-outlined">wifi</span>Wi-Fi</a>
+        <!-- Nearby verified essentials: live map with the closest verified places -->
+        <a href="resource-map.html" class="home-map" aria-label="Open the map of nearby verified essentials">
+            <div id="home-map-tiles" class="home-map__tiles" aria-hidden="true"></div>
+            <div class="home-map__top">
+                <span class="home-map__pill home-map__pill--label">Nearby essentials</span>
+                <span class="home-map__pill"><span class="home-map__dot"></span><span id="home-map-count">Places near you</span></span>
+            </div>
+            <div class="home-map__foot">
+                <span class="material-symbols-outlined" aria-hidden="true">explore</span>
+                <span class="home-map__title">Nearby verified essentials</span>
+                <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
+            </div>
+        </a>
+
+        <!-- Drawn-icon buttons -->
+        <div class="quick-action-grid mt-3">
+            <a href="resume-builder.html" class="quick-action-card">
+                <span class="ns-art-tile"><img src="assets/illustrations/icons/post-job.svg" alt=""></span>
+                <span class="ns-card-title">Build my resume</span>
+                <span class="ns-card-sub">5 short questions</span>
+            </a>
+            <a href="opportunities.html" class="quick-action-card">
+                <span class="ns-art-tile"><img src="assets/illustrations/icons/money.svg" alt=""></span>
+                <span class="ns-card-title">Find a job</span>
+                <span id="home-gigs-sub" class="ns-card-sub">Day gigs near you</span>
+            </a>
+            <a href="companion.html" class="quick-action-card">
+                <span class="ns-art-tile"><img src="assets/illustrations/icons/companion.svg" alt=""></span>
+                <span class="ns-card-title">Ask Companion</span>
+                <span class="ns-card-sub">Beds, meals, anything</span>
+            </a>
+            <a href="call-shelter.html" class="quick-action-card">
+                <span class="ns-art-tile"><img src="assets/illustrations/icons/heart.svg" alt=""></span>
+                <span class="ns-card-title">Call for help</span>
+                <span class="ns-card-sub">211, free and private</span>
+            </a>
         </div>
 
-        <!-- Right now: the closest shelter that is open 24/7 (real data from /api/resources) -->
-        <section id="now-card" class="now-card" aria-labelledby="now-title">
-            <img class="now-card__art" src="assets/illustrations/bed.svg" alt="">
-            <p class="ns-eyebrow">Right now</p>
-            <h2 id="now-title" class="now-card__title mt-2">Shelters open all night</h2>
-            <p id="now-meta" class="now-card__meta">Finding the closest one…</p>
-            <a id="now-cta" href="resource-map.html?category=shelter" class="ns-btn ns-btn--primary ns-btn--sm !h-11 !px-5 mt-4">
-                Get directions <span class="material-symbols-outlined">keyboard_double_arrow_right</span>
-            </a>
-        </section>
+        <!-- My progress (js/northstar.js syncDashboardProgressWidget fills the ids) -->
+        <a id="dashboard-next-step-link" href="progress.html" class="home-progress">
+            <div class="home-progress__head">
+                <span class="material-symbols-outlined text-[22px]" aria-hidden="true">trending_up</span>
+                <h2>My progress</h2>
+                <span id="dashboard-progress-tasks-text" class="ns-badge ns-badge--sand">0 of 5 done</span>
+            </div>
+            <p class="ns-card-sub mt-2">Next: <span id="dashboard-next-milestone-label">Look around</span></p>
+            <div class="flex items-center justify-between mt-3">
+                <span class="text-[13px] font-bold">Your first steps</span>
+                <span id="dashboard-progress-pct" class="text-[13px] font-bold">0%</span>
+            </div>
+            <div class="home-progress__bar"><span id="home-progress-fill"></span></div>
+            <span id="dashboard-progress-bar" class="hidden"></span>
+        </a>
 
         <!-- Food donation status (shown when this person has an active donation) -->
         <div id="seeker-active-donation-container" class="hidden mt-4">
@@ -126,26 +228,13 @@
             <div class="ns-row"><span class="ns-row__sub">Loading places…</span></div>
         </div>
 
-        <div class="ns-section-head">
-            <h2>Just in case</h2>
-        </div>
-        <div class="ns-list">
-            <a href="call-shelter.html" class="ns-row">
-                <span class="ns-tile"><span class="material-symbols-outlined">call</span></span>
-                <span class="ns-row__body">
-                    <span class="ns-row__title block">Call for help</span>
-                    <span class="ns-row__sub block">211 finds a bed or a meal, free</span>
-                </span>
-                <span class="material-symbols-outlined ns-chevron">chevron_right</span>
-            </a>
-            <div id="download-banner" class="ns-row">
-                <span class="ns-tile"><span class="material-symbols-outlined">download</span></span>
-                <span class="ns-row__body">
-                    <span class="ns-row__title block">Save places for offline</span>
-                    <span class="ns-row__sub block">Opens without internet</span>
-                </span>
-                <button id="download-offline-btn" type="button" class="ns-btn ns-btn--secondary ns-btn--sm">Download</button>
-            </div>
+        <div id="download-banner" class="home-offline">
+            <span class="ns-tile ns-tile--plain"><span class="material-symbols-outlined">wifi_off</span></span>
+            <span class="home-offline__body">
+                <span class="ns-row__title block">Save places for offline</span>
+                <span class="ns-row__sub block">Opens without internet</span>
+            </span>
+            <button id="download-offline-btn" type="button" class="ns-btn ns-btn--yellow ns-btn--sm">Download</button>
         </div>
 
         <div id="offline-directory-container" class="hidden"></div>
@@ -295,7 +384,59 @@
         const el = document.getElementById('dashboard-greeting');
         if (!el) return;
         const name = firstName();
-        el.textContent = name ? `Hi, ${name}` : 'Hi there';
+        const h = new Date().getHours();
+        const part = h < 5 ? 'Good evening' : h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+        el.textContent = name ? `${part}, ${name}` : part;
+    }
+
+    // ---- Nearby verified essentials: OpenStreetMap tiles around you, closest places as pins ----
+    function renderMapPreview(places, from, loc) {
+        const box = document.getElementById('home-map-tiles');
+        if (!box) return;
+        const Z = 13;
+        const W = box.clientWidth || 358, H = box.clientHeight || 196;
+        const world = 256 * Math.pow(2, Z);
+        const toPx = (lat, lng) => {
+            const r = lat * Math.PI / 180;
+            return { x: (lng + 180) / 360 * world, y: (1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * world };
+        };
+        // Center a little above the middle so pins clear the title at the bottom
+        const c = toPx(from.lat, from.lng);
+        const x0 = c.x - W / 2, y0 = c.y - H * 0.45;
+        const parts = [];
+        for (let tx = Math.floor(x0 / 256); tx <= Math.floor((x0 + W) / 256); tx++) {
+            for (let ty = Math.floor(y0 / 256); ty <= Math.floor((y0 + H) / 256); ty++) {
+                parts.push(`<img src="https://tile.openstreetmap.org/${Z}/${tx}/${ty}.png" alt="" loading="lazy" decoding="async" style="left:${Math.round(tx * 256 - x0)}px;top:${Math.round(ty * 256 - y0)}px">`);
+            }
+        }
+        // Up to 9 of the closest places inside the visible area (above the fade), never stacked
+        const placed = [];
+        for (const p of places) {
+            if (placed.length >= 9) break;
+            const q = toPx(p.lat, p.lng);
+            const x = q.x - x0, y = q.y - y0;
+            if (x < 14 || x > W - 14 || y < 48 || y > H - 60) continue;
+            if (placed.some(o => Math.hypot(o.x - x, o.y - y) < 20)) continue;
+            placed.push({ x, y });
+            parts.push(`<span class="home-map__pin" style="left:${x.toFixed(1)}px;top:${y.toFixed(1)}px"></span>`);
+        }
+        if (loc) parts.push(`<span class="home-map__me" style="left:${(W / 2).toFixed(1)}px;top:${(H * 0.45).toFixed(1)}px"></span>`);
+        box.innerHTML = parts.join('');
+
+        const within = places.filter(p => p.dist <= 2).length;
+        document.getElementById('home-map-count').textContent = within
+            ? `${within} place${within === 1 ? '' : 's'} within 2 mi`
+            : `${places.length} places in Seattle`;
+    }
+
+    function renderProgress() {
+        if (typeof window.syncDashboardProgressWidget === 'function') window.syncDashboardProgressWidget();
+        const sum = typeof window.getProgressSummary === 'function' ? window.getProgressSummary() : null;
+        const fill = document.getElementById('home-progress-fill');
+        if (sum && fill) {
+            fill.style.width = '100%';
+            fill.style.transform = `scaleX(${sum.percentage / 100})`;
+        }
     }
 
     // Last location the person shared (map or onboarding). Never asked for here.
@@ -345,21 +486,7 @@
         // search also finds places without a map pin (private addresses, phone intake)
         searchData.places = places.concat(all.filter(p => typeof p.lat !== 'number').map(p => ({ ...p, dist: NaN })));
         searchData.hasLocation = !!loc;
-
-        // Right now: closest shelter open 24/7 that takes walk-ins
-        const shelter = places.find(p => inCat(p, 'shelter') && is247(p) && !p.referralOnly);
-        const title = document.getElementById('now-title');
-        const meta = document.getElementById('now-meta');
-        const cta = document.getElementById('now-cta');
-        if (shelter) {
-            title.textContent = 'Shelter open all night';
-            meta.textContent = [shortName(shelter.name), loc ? fmtMiles(shelter.dist) : null, 'open 24/7',
-                shelter.population && !/^(all|anyone|public)\b/i.test(shelter.population) ? `for ${shelter.population.toLowerCase()}` : null].filter(Boolean).join(' · ');
-            cta.setAttribute('href', `resource-map.html?resource=${encodeURIComponent(shelter.id)}`);
-        } else {
-            title.textContent = 'Find a bed tonight';
-            meta.textContent = 'See shelters on the map, or call 211.';
-        }
+        renderMapPreview(places, from, loc);
 
         // Near you: closest meal, closest shower, and a gig
         const openish = p => statusOf(p).open !== false;
@@ -398,6 +525,8 @@
             const res = await fetch('/api/gigs');
             const data = await res.json();
             searchData.gigs = data.gigs || [];
+            const nGigs = (data.gigs || []).length;
+            document.getElementById('home-gigs-sub').textContent = nGigs ? `${nGigs} day gig${nGigs === 1 ? '' : 's'} listed` : 'Day gigs near you';
             const gig = (data.gigs || [])[0];
             if (gig) {
                 const title = String(gig.title || '').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '').replace(/\s+/g, ' ').trim();
@@ -419,6 +548,10 @@
         setDashboardGreeting();
         initSearch();
         renderPlaces();
+        // northstar.js loads after this script; its progress helpers exist once the page is parsed
+        setTimeout(renderProgress, 0);
+        window.addEventListener('ns:userdata', renderProgress);
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) renderProgress(); });
     }
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
@@ -435,7 +568,7 @@ window.initSeekerActiveDonation = async function () {
     if (!container || role === 'volunteer' || !session || !session.id) return;
 
     try {
-        const res = await fetch('/api/deliveries');
+        const res = await fetch('/api/deliveries', { headers: nsAuthHeaders() });
         const data = await res.json();
         const activeJob = (data.deliveries || []).find(d =>
             d.donor_id === session.id &&

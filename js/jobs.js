@@ -173,7 +173,7 @@
           </div>
           ${descriptionText ? `<p class="job-description">${esc(descriptionText)}</p>` : ''}
           ${badgesHtml([
-            saysNoIdNeeded(g) ? `<span class="ns-badge ns-badge--leaf"><span class="material-symbols-outlined" aria-hidden="true">check</span>No ID needed</span>` : ''
+            saysNoIdNeeded(g) ? `<span class="ns-badge ns-badge--leaf"><span class="material-symbols-outlined" aria-hidden="true">check</span>Listing says no ID needed</span>` : ''
           ])}
           <div class="card-divider">
               ${applyHtml}
@@ -208,7 +208,10 @@
       : `<button type="button" onclick="handleJobContactClick('${encArg(j.contact)}')" class="apply-cta-btn ns-btn ns-btn--secondary ns-btn--sm flex-1">
                   <span class="material-symbols-outlined" aria-hidden="true">${action.icon}</span> ${action.label}
               </button>
-              ${primerButtonHtml(title)}`;
+              ${primerButtonHtml(title)}
+              <button type="button" onclick="nsReportPost('job', '${encArg(j.id)}', '${encArg(j.poster_key || '')}')" class="ns-icon-btn ns-icon-btn--sm" aria-label="Report or block this post" title="Report or block">
+                  <span class="material-symbols-outlined" aria-hidden="true">flag</span>
+              </button>`;
 
     return `
       <article data-job-id="${esc(id)}" data-job-key="${esc(key)}" data-job-kind="posted" class="job-card ns-card">
@@ -562,7 +565,9 @@
         ? [...localJobs, ...(jobsRes.jobs || [])]
         : (jobsRes.jobs || []);
         
-      const standardJobs = filterOutSurveys(deduplicate(combinedJobsList));
+      // Posts from people this person blocked are left out
+      const hidden = typeof window.nsHiddenPost === 'function' ? (j) => window.nsHiddenPost('job', j) : () => false;
+      const standardJobs = filterOutSurveys(deduplicate(combinedJobsList)).filter(j => !hidden(j));
 
       // Re-acquire feed reference in case DOM swapped during async fetch
       const currentFeed = getJobsFeedContainer();

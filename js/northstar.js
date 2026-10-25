@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (mainLayout) { mainLayout.classList.remove('hidden'); mainLayout.style.display = 'flex'; }
   }
 
-  // Fetch the persisted role from Supabase for signed-in users (theme is always light for now)
+  // Fetch the persisted role from Supabase for signed-in users
   if (session && !session.isGuest && session.id && window.supabaseClient) {
     window.supabaseClient
       .from('profiles')
@@ -99,25 +99,66 @@ function renderAccountHeaderAvatar() {
   });
 }
 
-// Dark mode is switched off for now. These stay as no-op shims for older callers.
-function syncHeaderThemeIcons() {}
+// ---- Light / dark mode --------------------------------------------------------
+// js/ns-boot.js owns the theme (window.nsTheme). Here: the one-tap sun/moon button
+// next to the avatar on every page that has one, and Light / Dark / Auto in Settings.
+const THEME_ICONS = {
+  // Shown in light mode: tap for dark
+  moon: '<svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.2A8.5 8.5 0 1 1 9.8 3.5a6.8 6.8 0 0 0 10.7 10.7Z"/></svg>',
+  // Shown in dark mode: tap for light
+  sun: '<svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></svg>'
+};
+
+function currentTheme() {
+  return window.nsTheme ? window.nsTheme.current() : (document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+}
+
+function syncHeaderThemeIcons() {
+  const dark = currentTheme() === 'dark';
+  document.querySelectorAll('.ns-theme-btn').forEach(btn => {
+    btn.innerHTML = dark ? THEME_ICONS.sun : THEME_ICONS.moon;
+    btn.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
+    btn.title = dark ? 'Light mode' : 'Dark mode';
+    btn.setAttribute('aria-pressed', String(dark));
+  });
+}
 
 function initThemeToggle() {
-  document.documentElement.classList.remove('dark');
-  document.documentElement.classList.add('light');
-  document.querySelectorAll('#theme-toggle-btn').forEach(btn => btn.remove());
+  // One per header, right before the avatar
+  document.querySelectorAll('#profile-btn').forEach(profileBtn => {
+    const actions = profileBtn.parentElement;
+    // Compact top bars (back · title · avatar) have no room; Settings has the choice there
+    if (!actions || actions.classList.contains('ns-topbar') || actions.querySelector('.ns-theme-btn')) return;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'ns-icon-btn ns-theme-btn';
+    btn.addEventListener('click', () => window.toggleTheme());
+    actions.insertBefore(btn, profileBtn);
+  });
+  syncHeaderThemeIcons();
 }
-initThemeToggle();
 
-window.setThemeMode = function () {
-  initThemeToggle();
+window.setThemeMode = function (choice) {
+  if (window.nsTheme) window.nsTheme.set(choice);
 };
 
 window.toggleTheme = function () {
-  initThemeToggle();
+  if (window.nsTheme) window.nsTheme.toggle();
 };
 
-function updateSettingsThemeUI() {}
+function updateSettingsThemeUI() {
+  const choice = window.nsTheme ? window.nsTheme.choice() : 'system';
+  document.querySelectorAll('[data-theme-choice]').forEach(btn => {
+    const on = btn.dataset.themeChoice === choice;
+    btn.classList.toggle('is-active', on);
+    btn.setAttribute('aria-pressed', String(on));
+  });
+}
+
+window.addEventListener('ns:theme', () => {
+  syncHeaderThemeIcons();
+  updateSettingsThemeUI();
+});
 
 // Initialize Supabase Client dynamically from server config
 async function initSupabaseClient() {
@@ -439,9 +480,13 @@ function playRoleSplash(role, origin) {
     el.className = `ns-role-splash ns-role-splash--${cfg.tone}${reduce ? ' is-reduced' : ''}`;
     el.setAttribute('role', 'status');
     el.setAttribute('aria-live', 'polite');
+    // The color grows out of the tap as a scaled circle (transform only, so phones keep it smooth)
+    const r = Math.ceil(Math.hypot(Math.max(x, box.width - x), Math.max(y, box.height - y)));
     el.style.setProperty('--rs-x', `${x}px`);
     el.style.setProperty('--rs-y', `${y}px`);
+    el.style.setProperty('--rs-r', `${r}px`);
     el.innerHTML = `
+      <span class="ns-role-splash__fill" aria-hidden="true"></span>
       <div class="ns-role-splash__art">${cfg.art}</div>
       <p class="ns-role-splash__title">${cfg.title}</p>
       <p class="ns-role-splash__sub">${cfg.sub}</p>`;
@@ -489,10 +534,13 @@ async function switchUserRole(role, event) {
     }
   } catch (_) {}
 
-  // Land on that side's Home (the splash stays up until the page changes)
+  // Land on that side's Home. Skip the usual cream page cover: the art fades, the color stays,
+  // and Home opens under the same color and fades it away (js/ns-boot.js), so nothing flashes.
   const home = role === 'volunteer' ? 'helper-dashboard.html' : 'seeker-dashboard.html';
-  if (typeof nsGo === 'function') nsGo(home, { replace: true });
-  else window.location.replace(home);
+  const splash = document.querySelector('.ns-role-splash');
+  if (splash) splash.classList.add('is-leaving');
+  try { sessionStorage.setItem('ns_role_arrive', ROLE_SPLASH[role].tone); } catch (_) {}
+  setTimeout(() => window.location.replace(home), splash && !splash.classList.contains('is-reduced') ? 220 : 0);
   setTimeout(() => { _roleSwitching = false; }, 4000);
 }
 window.switchUserRole = switchUserRole;
@@ -815,6 +863,189 @@ function closeModal(modalId) {
 })();
 
 // Settings sheet
+// ---- Companion AI consent (App Review Guideline 5.1.2(i)) ----------------------------------
+// Nothing is sent to Companion's AI services until the person agrees here. The choice is kept on
+// this phone (and with the account, via js/user-data.js) and can be changed in Settings.
+const AI_CONSENT_KEY = 'northstar_ai_consent';
+function nsAiConsent() {
+  try { return localStorage.getItem(AI_CONSENT_KEY) === 'yes'; } catch (e) { return false; }
+}
+function nsSetAiConsent(on) {
+  try { localStorage.setItem(AI_CONSENT_KEY, on ? 'yes' : 'no'); } catch (e) {}
+}
+window.nsAiConsent = nsAiConsent;
+window.nsSetAiConsent = nsSetAiConsent;
+
+window.nsEnsureAiConsent = function () {
+  if (nsAiConsent()) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    document.getElementById('ai-consent-modal')?.remove();
+    const modal = document.createElement('div');
+    modal.id = 'ai-consent-modal';
+    modal.className = 'ns-sheet-wrap hidden';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-labelledby', 'ai-consent-title');
+    modal.innerHTML = `
+      <div class="ns-sheet-backdrop" data-ai-consent="no"></div>
+      <div class="modal-drawer ns-sheet translate-y-full">
+        <div class="ns-sheet__handle"></div>
+        <h2 id="ai-consent-title" class="ns-sheet__title">Before you talk to Companion</h2>
+        <p class="ns-card-sub mt-3">Companion is an AI helper. To answer you, Northstar sends what you type or say, and your recent messages in this chat, to <strong>Google’s Gemini</strong> AI service.</p>
+        <p class="ns-card-sub mt-3">If you use your voice, your recording is sent to <strong>ElevenLabs</strong> to turn it into words, and Companion’s answers are sent to ElevenLabs to be read out loud.</p>
+        <p class="ns-card-sub mt-3">Please don’t share things you want to keep private, like ID numbers or health details. You can turn this off any time in Settings. <a href="privacy.html" class="underline">Privacy policy</a></p>
+        <div class="mt-6 flex flex-col gap-3">
+          <button type="button" class="ns-btn ns-btn--primary" data-ai-consent="yes">Allow and continue</button>
+          <button type="button" class="ns-btn ns-btn--ghost" data-ai-consent="no">Not now</button>
+        </div>
+      </div>`;
+    (document.querySelector('.app-frame') || document.body).appendChild(modal);
+    modal.addEventListener('click', (e) => {
+      const choice = e.target.closest('[data-ai-consent]');
+      if (!choice) return;
+      const ok = choice.getAttribute('data-ai-consent') === 'yes';
+      if (ok) nsSetAiConsent(true);
+      closeModal('ai-consent-modal');
+      setTimeout(() => modal.remove(), 400);
+      resolve(ok);
+    });
+    openModal('ai-consent-modal');
+    setTimeout(() => modal.querySelector('[data-ai-consent="yes"]')?.focus(), 50);
+  });
+};
+
+// ---- Report and block posts (App Review Guideline 1.2) --------------------------------------
+// Jobs and pickup requests are written by people. Anyone signed in can report one; the reporter
+// stops seeing it right away, and can also hide everything from that poster (block).
+const BLOCKED_POSTERS_KEY = 'northstar_blocked_posters';
+const REPORTED_POSTS_KEY = 'northstar_reported_posts';
+function nsReadList(key) {
+  try { const v = JSON.parse(localStorage.getItem(key) || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; }
+}
+function nsAddToList(key, value) {
+  if (!value) return;
+  const list = nsReadList(key);
+  if (!list.includes(value)) { list.push(value); try { localStorage.setItem(key, JSON.stringify(list)); } catch (e) {} }
+}
+window.nsIsBlockedPoster = (posterKey) => !!posterKey && nsReadList(BLOCKED_POSTERS_KEY).includes(posterKey);
+window.nsIsReportedPost = (kind, id) => nsReadList(REPORTED_POSTS_KEY).includes(`${kind}:${id}`);
+window.nsHiddenPost = (kind, post) => !!post && (window.nsIsBlockedPoster(post.poster_key) || window.nsIsReportedPost(kind, post.id));
+
+window.nsReportPost = function (kind, encId, encPosterKey) {
+  const id = decodeURIComponent(encId || '');
+  const posterKey = decodeURIComponent(encPosterKey || '');
+  const session = getSession();
+  document.getElementById('report-modal')?.remove();
+  const modal = document.createElement('div');
+  modal.id = 'report-modal';
+  modal.className = 'ns-sheet-wrap hidden';
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+  modal.setAttribute('aria-labelledby', 'report-title');
+  const what = kind === 'job' ? 'job post' : 'pickup request';
+  modal.innerHTML = session.isGuest ? `
+      <div class="ns-sheet-backdrop" onclick="closeModal('report-modal')"></div>
+      <div class="modal-drawer ns-sheet translate-y-full">
+        <div class="ns-sheet__handle"></div>
+        <h2 id="report-title" class="ns-sheet__title">Report this ${what}</h2>
+        <p class="ns-card-sub mt-3">Please sign in to report a post, so we can follow up if needed.</p>
+        <div class="mt-6 flex flex-col gap-3">
+          <button type="button" class="ns-btn ns-btn--primary" onclick="redirectToAuthGateway()">Sign in or create an account</button>
+          <button type="button" class="ns-btn ns-btn--ghost" onclick="closeModal('report-modal')">Cancel</button>
+        </div>
+      </div>` : `
+      <div class="ns-sheet-backdrop" onclick="closeModal('report-modal')"></div>
+      <form class="modal-drawer ns-sheet translate-y-full" id="report-form">
+        <div class="ns-sheet__handle"></div>
+        <h2 id="report-title" class="ns-sheet__title">Report this ${what}</h2>
+        <p class="ns-card-sub mt-1">You won’t see it again. Our team reviews every report.</p>
+        <fieldset class="ns-list mt-4">
+          <legend class="ns-label">What’s wrong?</legend>
+          ${[['offensive', 'Offensive or hateful'], ['unsafe', 'Scam, unsafe or illegal'], ['spam', 'Spam or fake'], ['other', 'Something else']].map(([v, t], i) => `
+          <label class="ns-row cursor-pointer"><span class="ns-row__body"><span class="ns-row__title block">${t}</span></span>
+            <input type="radio" name="report-reason" value="${v}" ${i === 0 ? 'checked' : ''}></label>`).join('')}
+        </fieldset>
+        ${posterKey ? `<label class="ns-row cursor-pointer mt-2" for="report-block">
+          <span class="ns-row__body"><span class="ns-row__title block">Also hide posts from this person</span>
+          <span class="ns-row__sub block">Blocks them for you. You can’t undo this yet.</span></span>
+          <input type="checkbox" id="report-block" class="ns-switch"></label>` : ''}
+        <p id="report-status" class="ns-card-sub mt-3" role="status"></p>
+        <div class="mt-5 flex flex-col gap-3">
+          <button type="submit" class="ns-btn ns-btn--primary">Send report</button>
+          <button type="button" class="ns-btn ns-btn--ghost" onclick="closeModal('report-modal')">Cancel</button>
+        </div>
+      </form>`;
+  (document.querySelector('.app-frame') || document.body).appendChild(modal);
+  const form = modal.querySelector('#report-form');
+  if (form) form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const status = modal.querySelector('#report-status');
+    const btn = form.querySelector('[type="submit"]');
+    const reason = (form.querySelector('input[name="report-reason"]:checked') || {}).value || 'other';
+    const block = !!(form.querySelector('#report-block') || {}).checked;
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/reports', { method: 'POST', headers: nsAuthHeaders(), body: JSON.stringify({ kind, id, reason }) });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Couldn’t send the report. Please try again.');
+      nsAddToList(REPORTED_POSTS_KEY, `${kind}:${id}`);
+      if (block) nsAddToList(BLOCKED_POSTERS_KEY, posterKey);
+      document.querySelectorAll(`[data-job-id="${CSS.escape(id)}"]`).forEach(el => el.remove());
+      if (typeof window.notifyDeliveriesChanged === 'function') window.notifyDeliveriesChanged();
+      if (typeof window.loadOpportunities === 'function' && kind === 'job') window.loadOpportunities(true);
+      status.textContent = 'Thanks. Your report was sent and the post is hidden for you.';
+      setTimeout(() => closeModal('report-modal'), 1600);
+    } catch (err) {
+      status.textContent = err.message;
+      btn.disabled = false;
+    }
+  });
+  openModal('report-modal');
+};
+
+let _nsSupportEmail = null;
+async function nsSupportEmail() {
+  if (_nsSupportEmail !== null) return _nsSupportEmail;
+  try {
+    const cfg = await (await fetch('/api/config')).json();
+    _nsSupportEmail = String(cfg.supportEmail || '');
+  } catch (e) { _nsSupportEmail = ''; }
+  return _nsSupportEmail;
+}
+
+// Account deletion (App Review Guideline 5.1.1(v)): two steps, then everything is removed
+window.nsDeleteAccount = async function (confirmed) {
+  const box = document.getElementById('settings-delete-box');
+  if (!box) return;
+  if (!confirmed) {
+    box.innerHTML = `
+      <p class="ns-card-title">Delete your account?</p>
+      <p class="ns-card-sub mt-1">This removes your account, your saved places, resume and progress, and the jobs and pickup requests you posted. It can’t be undone.</p>
+      <p id="settings-delete-error" class="mt-2 text-[15px] font-semibold" role="alert" style="display:none;color:var(--danger)"></p>
+      <div class="mt-4 flex flex-col gap-3">
+        <button type="button" class="ns-btn ns-btn--danger" onclick="nsDeleteAccount(true)">Delete my account</button>
+        <button type="button" class="ns-btn ns-btn--ghost" onclick="openSettingsModal()">Cancel</button>
+      </div>`;
+    box.querySelector('.ns-btn--danger')?.focus();
+    return;
+  }
+  const btn = box.querySelector('.ns-btn--danger');
+  if (btn) { btn.disabled = true; btn.textContent = 'Deleting…'; }
+  try {
+    const res = await fetch('/api/account', { method: 'DELETE', headers: nsAuthHeaders() });
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok || !out.success) throw new Error(out.error || 'Couldn’t delete your account right now. Please try again.');
+    try {
+      Object.keys(localStorage).filter(k => /^(northstar_|ns_)/.test(k)).forEach(k => localStorage.removeItem(k));
+      sessionStorage.clear();
+    } catch (e) {}
+    window.location.replace('index.html?deleted=1');
+  } catch (err) {
+    const msg = document.getElementById('settings-delete-error');
+    if (msg) { msg.textContent = err.message; msg.style.display = 'block'; }
+    if (btn) { btn.disabled = false; btn.textContent = 'Delete my account'; }
+  }
+};
+
 function settingsAuthMarkup(session) {
   if (session.isGuest) {
     return `
@@ -826,7 +1057,13 @@ function settingsAuthMarkup(session) {
     <button type="button" onclick="logout()" class="ns-btn ns-btn--ghost">
       <span class="material-symbols-outlined">logout</span>
       Sign out
-    </button>`;
+    </button>
+    <div id="settings-delete-box" class="mt-6">
+      <button type="button" onclick="nsDeleteAccount(false)" class="ns-btn ns-btn--danger">
+        <span class="material-symbols-outlined">delete</span>
+        Delete account
+      </button>
+    </div>`;
 }
 
 window.openSettingsModal = function () {
@@ -864,6 +1101,36 @@ window.openSettingsModal = function () {
           <p class="ns-hint">Switching changes your home screen and tabs.</p>
         </div>
 
+        <div class="mt-6">
+          <span class="ns-label" id="settings-theme-label">Appearance</span>
+          <div class="ns-segment" role="group" aria-labelledby="settings-theme-label">
+            <button type="button" data-theme-choice="light" onclick="setThemeMode('light')">Light</button>
+            <button type="button" data-theme-choice="dark" onclick="setThemeMode('dark')">Dark</button>
+            <button type="button" data-theme-choice="system" onclick="setThemeMode('system')">Auto</button>
+          </div>
+          <p class="ns-hint">Auto matches your phone. You can also tap the moon or sun at the top of a page.</p>
+        </div>
+
+        <div class="ns-list mt-6">
+          <label class="ns-row cursor-pointer" for="settings-ai-consent">
+            <span class="ns-row__body">
+              <span class="ns-row__title block">Companion AI</span>
+              <span class="ns-row__sub block">Sends your chat to Google Gemini and your voice to ElevenLabs. Off turns Companion off.</span>
+            </span>
+            <input type="checkbox" id="settings-ai-consent" class="ns-switch" onchange="nsSetAiConsent(this.checked)">
+          </label>
+          <a class="ns-row" href="privacy.html">
+            <span class="ns-row__body"><span class="ns-row__title block">Privacy policy</span>
+            <span class="ns-row__sub block">What Northstar collects and who it shares it with</span></span>
+            <span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>
+          </a>
+          <a class="ns-row hidden" id="settings-contact" href="#">
+            <span class="ns-row__body"><span class="ns-row__title block">Contact us</span>
+            <span class="ns-row__sub block" id="settings-contact-sub">Report a problem or ask a question</span></span>
+            <span class="material-symbols-outlined" aria-hidden="true">mail</span>
+          </a>
+        </div>
+
         <div class="mt-6" id="settings-auth-container"></div>
       </div>
     `;
@@ -893,6 +1160,18 @@ window.openSettingsModal = function () {
     volunteerBtn.setAttribute('aria-pressed', String(role === 'volunteer'));
   }
 
+  const aiSwitch = document.getElementById('settings-ai-consent');
+  if (aiSwitch) aiSwitch.checked = nsAiConsent();
+  nsSupportEmail().then((email) => {
+    const link = document.getElementById('settings-contact');
+    if (!link || !email) return;
+    link.href = `mailto:${email}`;
+    link.classList.remove('hidden');
+    const sub = document.getElementById('settings-contact-sub');
+    if (sub) sub.textContent = email;
+  });
+
+  updateSettingsThemeUI();
   openModal('settings-modal');
 };
 
@@ -1441,10 +1720,11 @@ window.renderBottomNav = renderBottomNav;
 
 window.fetchUnifiedDeliveries = async function() {
   try {
-    const res = await fetch('/api/deliveries');
+    const res = await fetch('/api/deliveries', { headers: nsAuthHeaders() });
     if (res.ok) {
       const data = await res.json();
-      const deliveries = Array.isArray(data.deliveries) ? data.deliveries : [];
+      // Requests from blocked people, or ones this person reported, are left out
+      const deliveries = (Array.isArray(data.deliveries) ? data.deliveries : []).filter(d => !window.nsHiddenPost('delivery', d));
       try { localStorage.setItem('northstar_cached_deliveries', JSON.stringify(deliveries)); } catch(_) {}
       return deliveries;
     }
@@ -1538,6 +1818,9 @@ async function renderVolunteerFoodDonationsQueue() {
             ${route ? `<p class="ns-row__sub truncate">${route}</p>` : ''}
             ${meta ? `<p class="ns-row__sub truncate">${meta}</p>` : ''}
           </div>
+          <button type="button" onclick="nsReportPost('delivery', '${encodeURIComponent(d.id)}', '${encodeURIComponent(d.poster_key || '')}')" class="ns-icon-btn ns-icon-btn--sm" aria-label="Report or block this pickup request" title="Report or block">
+            <span class="material-symbols-outlined" aria-hidden="true">flag</span>
+          </button>
           <button type="button" onclick="window.claimAndTrackDelivery('${id}')" class="ns-btn ns-btn--primary ns-btn--sm">Claim</button>
         </div>`;
     }).join('')}</div>`;
@@ -1606,7 +1889,7 @@ window.updateDeliveryStatusDirect = async function(id, status) {
       headers: nsAuthHeaders(),
       body: JSON.stringify({ status: status })
     });
-    const res = await fetch(`/api/deliveries/${encodeURIComponent(id)}`);
+    const res = await fetch(`/api/deliveries/${encodeURIComponent(id)}`, { headers: nsAuthHeaders() });
     const data = await res.json();
     if (data.delivery) {
       window.updateUberTrackingUI(data.delivery);
@@ -1707,7 +1990,7 @@ window.openUberTrackingModal = function(deliveryId) {
   const fetchAndUpdate = async () => {
     let shown = false;
     try {
-      const res = await fetch(`/api/deliveries/${encodeURIComponent(deliveryId)}`);
+      const res = await fetch(`/api/deliveries/${encodeURIComponent(deliveryId)}`, { headers: nsAuthHeaders() });
       const data = res.ok ? await res.json() : null;
       if (data && data.delivery) { window.updateUberTrackingUI(data.delivery); shown = true; }
     } catch (e) {
@@ -1950,7 +2233,8 @@ function renderCompanionConversation(chat) {
 
 function updateCompanionHeader(chat) {
   const meta = document.getElementById('companion-meta');
-  if (meta) meta.textContent = chat && chat.title ? chat.title : 'Ask about beds, meals, gigs or your resume';
+  // Always the tagline: chat titles are just the first message ("hi") and live in the chats list.
+  if (meta) meta.textContent = 'Ask about beds, meals, gigs or your resume';
   const count = document.getElementById('companion-chats-count');
   if (count) {
     const n = readChats().chats.length;
@@ -2568,16 +2852,23 @@ async function handleAIChatSubmit(e) {
   await dispatchChatMessage(text);
 }
 
-async function dispatchChatMessage(rawText, isResuming = false) {
+// opts.voice: the message was spoken (Voice Companion). Resolves to { ok, reply, spoken } or
+// { ok: false, message } so voice mode can read the answer aloud.
+async function dispatchChatMessage(rawText, isResuming = false, opts = {}) {
   const text = String(rawText || '').trim();
-  if (!text) return;
+  if (!text) return { ok: false };
+  if (!(await window.nsEnsureAiConsent())) {
+    appendAssistantMessageBubble('Okay, nothing was sent. Companion only works with your OK. You can still use the map, or call 211 to talk to a person about beds, food and other help.');
+    return { ok: false, consent: false };
+  }
 
   const messagesList = document.getElementById('chatbot-messages-list');
   const sendBtn = document.getElementById('chatbot-send-btn');
-  if (!messagesList) return;
+  if (!messagesList) return { ok: false };
 
   // Prevent multiple simultaneous requests
-  if (window._chatPending) return;
+  if (window._chatPending) return { ok: false, busy: true };
+  let outcome = { ok: false };
 
   // 1. Capture the CURRENT history snapshot BEFORE adding the new user message
   const previousHistory = (window.northstarChatHistory || []).slice(-10);
@@ -2595,7 +2886,7 @@ async function dispatchChatMessage(rawText, isResuming = false) {
   typingBubble.className = 'flex gap-2 items-start chat-msg-incoming';
   typingBubble.innerHTML = `
     <span class="ns-chat__mark ns-chat__mark--sm" aria-hidden="true"></span>
-    <div class="ns-chat__bubble ns-chat__bubble--in flex items-center gap-1.5" aria-label="Companion is typing">
+    <div class="ns-chat__bubble ns-chat__bubble--in flex items-center gap-1.5" role="status" aria-label="Companion is typing">
       <span class="typing-dot"></span>
       <span class="typing-dot"></span>
       <span class="typing-dot"></span>
@@ -2666,10 +2957,12 @@ async function dispatchChatMessage(rawText, isResuming = false) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        aiConsent: true,
         message: text,
         role: currentRole,
         history: previousHistory,
-        context: northstarContext
+        context: northstarContext,
+        voice: opts.voice === true
       }),
       signal: chatController.signal
     });
@@ -2718,11 +3011,14 @@ async function dispatchChatMessage(rawText, isResuming = false) {
       setTimeout(() => {
         appendAssistantMessageBubble(data.reply, false, chatAction);
       }, 120);
+      outcome = { ok: true, reply: data.reply, spoken: data.spoken || data.reply };
     } else {
       // The server answered but no assistant could reply
+      const busy = "Companion is busy right now. Please try again in a minute.";
       setTimeout(() => {
-        appendAssistantMessageBubble("Companion is busy right now. Please try again in a minute.", true);
+        appendAssistantMessageBubble(busy, true);
       }, 120);
+      outcome = { ok: false, message: busy };
     }
   } catch (err) {
     console.error('Chat error:', err);
@@ -2731,6 +3027,7 @@ async function dispatchChatMessage(rawText, isResuming = false) {
       ? 'That took too long. Please try again.'
       : 'Companion can’t reach the internet right now. Check your connection and try again.';
     setTimeout(() => appendAssistantMessageBubble(msg, true), 120);
+    outcome = { ok: false, message: msg };
   } finally {
     saveChatHistory();
     typingNotes.forEach(clearTimeout);
@@ -2738,6 +3035,7 @@ async function dispatchChatMessage(rawText, isResuming = false) {
     window._chatPending = false;
     if (sendBtn) sendBtn.disabled = false;
   }
+  return outcome;
 }
 
 // Expose globally for inline/SPA callers

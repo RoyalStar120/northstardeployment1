@@ -1,6 +1,6 @@
 /**
  * Shared Tailwind (Play CDN) theme for every Northstar page.
- * Load right after https://cdn.tailwindcss.com. Tokens mirror css/app.css.
+ * Load right after https://cdn.tailwindcss.com. Colors are the css/app.css tokens.
  */
 window.tailwind = window.tailwind || {};
 tailwind.config = {
@@ -14,22 +14,23 @@ tailwind.config = {
         sans: ['"Plus Jakarta Sans"', 'system-ui', '-apple-system', 'sans-serif'],
         heading: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif']
       },
+      // CSS variables from css/app.css, so utilities follow light and dark mode
       colors: {
-        ink: { DEFAULT: '#111111', 2: '#3F3F3F' },
-        muted: '#737373',
-        cream: '#FFFFFF',
-        paper: '#FFFFFF',
-        sand: { DEFAULT: '#F2F2F2', deep: '#E6E6E6' },
-        line: '#E8E8E8',
+        ink: { DEFAULT: 'var(--ink)', 2: 'var(--ink-2)' },
+        muted: 'var(--muted)',
+        cream: 'var(--cream)',
+        paper: 'var(--paper)',
+        sand: { DEFAULT: 'var(--sand)', deep: 'var(--sand-deep)' },
+        line: 'var(--line)',
         amber: {
-          DEFAULT: '#FFD43B',
-          deep: '#111111',
-          wash: '#FFF7D1',
-          line: '#F2DC7A',
-          ink: '#6B5500'
+          DEFAULT: 'var(--amber)',
+          deep: 'var(--amber-deep)',
+          wash: 'var(--amber-wash)',
+          line: 'var(--amber-line)',
+          ink: 'var(--amber-ink)'
         },
-        leaf: { DEFAULT: '#1E7B45', wash: '#FFFFFF', line: '#B9DEC6' },
-        danger: { DEFAULT: '#B42318', wash: '#FEF3F2', line: '#FECDCA' }
+        leaf: { DEFAULT: 'var(--leaf)', wash: 'var(--leaf-wash)', line: 'var(--leaf-line)' },
+        danger: { DEFAULT: 'var(--danger)', wash: 'var(--danger-wash)', line: 'var(--danger-line)' }
       },
       borderRadius: {
         card: '18px',

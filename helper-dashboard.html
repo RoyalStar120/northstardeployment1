@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=0.9, viewport-fit=cover">
 <meta name="theme-color" content="#FFFFFF">
 <title>Home · Northstar</title>
-<link rel="icon" href="favicon.png">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.png" type="image/png" sizes="512x512">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <script src="js/ns-boot.js"></script>
 <script src="js/user-data.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16,7 +18,7 @@
 <style>
   .impact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .impact-card {
-    background: #F1EEE7;
+    background: var(--warm);
     border-radius: 16px;
     padding: 14px 14px 12px;
     display: flex;
@@ -62,8 +64,8 @@
   .donation-hero__cta {
     display: inline-flex;
     margin-top: 14px;
-    background: #111;
-    color: #fff;
+    background: var(--ink);
+    color: var(--on-ink);
     border: none;
     border-radius: 50px;
     font-size: 15px;
@@ -75,22 +77,6 @@
     transition: opacity 0.15s;
   }
   .donation-hero__cta:hover { opacity: 0.82; }
-  .quick-action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .quick-action-card {
-    background: var(--paper);
-    border: 1px solid #ECE7DC;
-    border-radius: 18px;
-    padding: 16px 14px 14px;
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    text-decoration: none;
-    color: inherit;
-    transition: background 0.12s, border-color 0.12s;
-    -webkit-tap-highlight-color: transparent;
-  }
-  .quick-action-card:active { background: var(--sand); }
-  .quick-action-card .ns-art-tile { margin-bottom: 10px; }
 </style>
 </head>
 <body>
@@ -110,7 +96,7 @@
     <main class="ns-main dashboard-container volunteer-dashboard-main" style="display:flex;flex-direction:column;gap:14px;">
 
         <!-- Donation hero banner -->
-        <div class="donation-hero">
+        <div class="donation-hero ns-on-amber">
             <div class="min-w-0">
                 <p class="donation-hero__kicker">You’ve given</p>
                 <p id="volunteer-total-donations" class="donation-hero__amount">$0</p>
@@ -256,7 +242,7 @@ window.initVolunteerActiveDelivery = async function () {
     if (!container || role !== 'volunteer' || !session || !session.id) return;
 
     try {
-        const res = await fetch('/api/deliveries');
+        const res = await fetch('/api/deliveries', { headers: nsAuthHeaders() });
         const data = await res.json();
         const activeJob = (data.deliveries || []).find(d =>
             d.driver_id === session.id &&

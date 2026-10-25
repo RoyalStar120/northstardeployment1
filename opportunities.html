@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=0.9, viewport-fit=cover">
 <meta name="theme-color" content="#FFFFFF">
 <title>Gigs · Northstar</title>
-<link rel="icon" href="favicon.png">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.png" type="image/png" sizes="512x512">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <script src="js/ns-boot.js"></script>
 <script src="js/user-data.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -31,7 +33,7 @@
 .job-card .ns-hint { margin-top: 6px; }
 .job-card .card-divider { display: flex; align-items: center; gap: 8px; margin-top: 16px; }
 .job-card .audio-primer-btn { box-shadow: none; border: 1px solid var(--line); }
-.job-card .audio-primer-btn:hover { border-color: #D6CEC1; }
+.job-card .audio-primer-btn:hover { border-color: var(--line-strong); }
 .post-info { margin: 14px 0 0; padding: 14px 0 0; list-style: none; border-top: 1px solid rgba(17, 17, 17, 0.14); display: flex; flex-direction: column; gap: 9px; }
 .post-info li { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; color: #3D3300; line-height: 1.35; }
 .post-info .material-symbols-outlined { font-size: 20px; color: var(--ink); flex-shrink: 0; }
@@ -54,7 +56,7 @@
     <main class="ns-main">
 
         <!-- Post a job (volunteers only; js/jobs.js toggles .hidden by role) -->
-        <div id="post-job-volunteer-banner" class="hidden mb-3" style="border-radius:20px;background:var(--amber);padding:18px;">
+        <div id="post-job-volunteer-banner" class="hidden mb-3 ns-on-amber" style="border-radius:20px;background:var(--amber);padding:18px;">
             <div class="ns-feature !p-0">
                 <div class="ns-feature__body">
                     <p class="ns-feature__title">Have work to offer?</p>
@@ -68,6 +70,18 @@
                 <li><span class="material-symbols-outlined" aria-hidden="true">delete</span>Remove it any time from Your posts</li>
             </ul>
         </div>
+
+        <!-- What this page is for (people looking for work) -->
+        <section id="gigs-intro-card" class="now-card ns-on-amber mb-3" aria-labelledby="gigs-intro-title">
+            <img class="now-card__art" src="assets/illustrations/work-offer.svg" alt="">
+            <p class="ns-eyebrow">How gigs work</p>
+            <h2 id="gigs-intro-title" class="now-card__title mt-2">Paid work near you</h2>
+            <p class="now-card__meta">Day gigs and jobs posted by neighbors, with the pay shown up front. Tap Apply and Northstar walks you through it, step by step.</p>
+            <button type="button" class="ns-btn ns-btn--primary ns-btn--sm !h-11 !px-5 mt-4"
+                onclick="document.getElementById('jobs-section-title').scrollIntoView({ behavior: 'smooth', block: 'start' })">
+                See gigs <span class="material-symbols-outlined" aria-hidden="true" style="transform: rotate(90deg)">keyboard_double_arrow_right</span>
+            </button>
+        </section>
 
         <!-- Ask Companion about the listings (seekers; click is bound in js/jobs.js) -->
         <button id="ai-match-trigger" type="button" class="w-full flex items-center gap-3 h-12 px-4 rounded-2xl ns-hint-yellow text-left">
@@ -267,60 +281,98 @@ window.handleJobContactClick = function(encodedContact) {
 };
 
 // Spoken tips. General advice only: nothing here promises pay, timing or paperwork for a listing.
-window.playAudioPrepPrimer = function(encodedTitle) {
-  const rawTitle = decodeURIComponent(encodedTitle || '');
-  const title = typeof window.nsCleanJobTitle === 'function' ? window.nsCleanJobTitle(rawTitle) : rawTitle;
-  const t = title.toLowerCase();
-
-  let prepAdvice = '';
-  if (/move|mover|haul|lift|loading|unload|warehouse|freight|pallet/.test(t)) {
-    prepAdvice = 'Wear closed-toe shoes or boots and bring work gloves if you have them. Lift with your legs, not your back, and ask for help with anything too heavy. Check the address and a phone number for the person in charge before you head out.';
-  } else if (/kitchen|food|dish|cook|prep|meal|catering/.test(t)) {
-    prepAdvice = 'Bring your food handler card if you have one. Wear non-slip, closed-toe shoes and tie your hair back. When you arrive, ask for the kitchen lead and check when your breaks are.';
-  } else if (/yard|clean|landscap|rake|outdoor|handyman|demo/.test(t)) {
-    prepAdvice = 'Dress in layers for the weather and bring water. Ask ahead whether tools are provided. Check the address and cross streets before you start.';
-  } else if (/event|setup|stage|chair/.test(t)) {
-    prepAdvice = 'Wear dark, comfortable clothes and supportive shoes. Try to arrive ten minutes early and ask for the team lead. Save their phone number in case plans change.';
-  } else if (/digital|microtask|online|label|testing/.test(t)) {
-    prepAdvice = 'You will need a phone or computer with a steady internet connection. A library or community center with free Wi-Fi works. Check how and when you get paid before you start.';
-  } else {
-    prepAdvice = 'Before you go, check the address, who to ask for, and a phone number to reach them. Stay hydrated and put your safety first.';
-  }
-  prepAdvice += ' Agree on the pay, and when you will be paid, before you start work.';
-
-  window._audioPrimerCurrent = { title, prepAdvice };
-  speakPrimer();
-  showAudioPrimerModal(title, prepAdvice);
+// Texts live in src/data/job-tips.json (served at /api/job-tips); the voice is an ElevenLabs recording per kind of job
+// (/api/tips-audio/:kind), made once on the server. If it can't play, the phone's own voice reads it.
+const TIPS_FALLBACK = {
+  intro: 'Here are a few tips before you go.',
+  payNote: "Agree on the pay, and when you'll be paid, before you start work.",
+  kinds: [{ id: 'general', match: '', text: 'Before you go, check the address, who to ask for, and a phone number to reach them. Stay hydrated, and put your safety first.' }]
 };
+let jobTips = null;
+const jobTipsReady = fetch('/api/job-tips').then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then(d => { jobTips = d; }).catch(() => { jobTips = TIPS_FALLBACK; });
+
+function tipFor(title) {
+  const tips = jobTips || TIPS_FALLBACK;
+  const t = String(title || '').toLowerCase();
+  const kind = (tips.kinds || []).find(k => k.match && new RegExp(k.match).test(t))
+    || (tips.kinds || []).find(k => k.id === 'general') || TIPS_FALLBACK.kinds[0];
+  return { kind: kind.id, advice: `${kind.text} ${tips.payNote}`, spoken: [tips.intro, kind.text, tips.payNote].join(' ') };
+}
+
+let tipAudioEl = null;
+const tipAudioFailed = new Set();
+
+function setPlayLabel(text, busy) {
+  const label = document.getElementById('audio-primer-play-label');
+  if (label) label.textContent = text;
+  const btn = document.getElementById('audio-primer-play');
+  if (btn) btn.toggleAttribute('aria-busy', !!busy);
+}
+
+function stopTipAudio() {
+  if (tipAudioEl) { tipAudioEl.pause(); tipAudioEl.currentTime = 0; }
+  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+  setPlayLabel('Play again');
+}
+
+function speakWithPhone(text) {
+  if (!('speechSynthesis' in window)) { setPlayLabel('Play again'); return; }
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.rate = 0.95;
+  u.onend = () => setPlayLabel('Play again');
+  window.speechSynthesis.speak(u);
+  setPlayLabel('Playing…');
+}
 
 function speakPrimer() {
   const cur = window._audioPrimerCurrent;
-  if (!cur || !('speechSynthesis' in window)) return;
-  window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(`Tips for ${cur.title}. ${cur.prepAdvice}`);
-  utterance.rate = 1.0;
-  utterance.pitch = 1.0;
-  window.speechSynthesis.speak(utterance);
+  if (!cur) return;
+  stopTipAudio();
+  if (tipAudioFailed.has(cur.kind)) { speakWithPhone(cur.spoken); return; }
+  if (!tipAudioEl) {
+    tipAudioEl = new Audio();
+    tipAudioEl.preload = 'auto';
+  }
+  const src = `/api/tips-audio/${encodeURIComponent(cur.kind)}`;
+  if (!tipAudioEl.src.endsWith(src)) tipAudioEl.src = src;
+  tipAudioEl.onplaying = () => setPlayLabel('Playing…');
+  tipAudioEl.onended = () => setPlayLabel('Play again');
+  tipAudioEl.onerror = () => { tipAudioFailed.add(cur.kind); speakWithPhone(cur.spoken); };
+  setPlayLabel('Loading the voice…', true);
+  const playing = tipAudioEl.play();
+  if (playing && playing.catch) {
+    playing.catch(err => {
+      // Autoplay blocked: wait for the Play button. Anything else: use the phone's voice.
+      if (err && err.name === 'NotAllowedError') setPlayLabel('Play');
+      else { tipAudioFailed.add(cur.kind); speakWithPhone(cur.spoken); }
+    });
+  }
 }
 
+window.playAudioPrepPrimer = async function(encodedTitle) {
+  const rawTitle = decodeURIComponent(encodedTitle || '');
+  const title = typeof window.nsCleanJobTitle === 'function' ? window.nsCleanJobTitle(rawTitle) : rawTitle;
+  if (!jobTips) await Promise.race([jobTipsReady, new Promise(r => setTimeout(r, 1500))]);
+  const tip = tipFor(title);
+  window._audioPrimerCurrent = { title, prepAdvice: tip.advice, kind: tip.kind, spoken: tip.spoken };
+  showAudioPrimerModal(title, tip.advice);
+  speakPrimer();
+};
+
 window.showAudioPrimerModal = function(title, prepAdvice) {
-  window._audioPrimerCurrent = { title, prepAdvice };
   document.getElementById('audio-primer-job').textContent = title;
   document.getElementById('audio-primer-text').textContent = prepAdvice;
-  const canSpeak = 'speechSynthesis' in window;
-  document.getElementById('audio-primer-play').classList.toggle('hidden', !canSpeak);
+  document.getElementById('audio-primer-play').classList.remove('hidden');
   openModal('audio-primer-modal');
 };
 
 window.closeAudioPrimerModal = function() {
-  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+  stopTipAudio();
   closeModal('audio-primer-modal');
 };
 
-window.replayAudioSpeech = function(encodedTitle, encodedAdvice) {
-  if (encodedTitle && encodedAdvice) {
-    window._audioPrimerCurrent = { title: decodeURIComponent(encodedTitle), prepAdvice: decodeURIComponent(encodedAdvice) };
-  }
+window.replayAudioSpeech = function() {
   speakPrimer();
 };
 
