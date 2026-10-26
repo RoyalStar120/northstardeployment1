@@ -6,9 +6,9 @@
       "framework": "vite"
     },
     "northstar-ai": {
-      "root": ".",
+      "root": "northstar-ai",
       "framework": "python",
-      "entrypoint": "northstar-ai/ai_server.py"
+      "entrypoint": "ai_server.py"
     }
   },
   "rewrites": [
