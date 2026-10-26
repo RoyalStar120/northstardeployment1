@@ -9,14 +9,14 @@
   "routes": [
     {
       "source": "/api/(.*)",
-      "destination": "northstar-ai/ai_server.py"
+      "destination": "/northstar-ai/ai_server.py"
     },
     {
       "handle": "filesystem"
     },
     {
-      "source": "/(.*)",
-      "destination": "index.html"
+      "source": "/((?!api/).*)",
+      "destination": "/$1"
     }
   ]
 }
