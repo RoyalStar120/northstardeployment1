@@ -1,28 +1,19 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "services": {
-    "app": {
-      "root": ".",
-      "framework": "vite"
-    },
-    "northstar-ai": {
-      "root": "northstar-ai",
-      "framework": "python",
-      "entrypoint": "ai_server.py"
+  "version": 2,
+  "builds": [
+    {
+      "src": "northstar-ai/ai_server.py",
+      "use": "@vercel/python"
     }
-  },
-  "rewrites": [
+  ],
+  "routes": [
     {
       "source": "/api/(.*)",
-      "destination": {
-        "service": "northstar-ai"
-      }
+      "destination": "northstar-ai/ai_server.py"
     },
     {
       "source": "/(.*)",
-      "destination": {
-        "service": "app"
-      }
+      "destination": "/$1"
     }
   ]
 }
