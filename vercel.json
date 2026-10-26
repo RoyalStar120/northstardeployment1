@@ -12,8 +12,11 @@
       "destination": "northstar-ai/ai_server.py"
     },
     {
+      "handle": "filesystem"
+    },
+    {
       "source": "/(.*)",
-      "destination": "/$1"
+      "destination": "/index.html"
     }
   ]
 }
