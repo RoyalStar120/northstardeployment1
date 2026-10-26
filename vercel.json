@@ -8,7 +8,7 @@
     "northstar-ai": {
       "root": ".",
       "framework": "python",
-      "entrypoint": "northstar/ai_server.py"
+      "entrypoint": "northstar-ai/ai_server.py"
     }
   },
   "rewrites": [
